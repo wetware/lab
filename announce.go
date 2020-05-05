@@ -8,7 +8,6 @@ import (
 	peer "github.com/libp2p/go-libp2p-core/peer"
 	"github.com/pkg/errors"
 
-	"github.com/testground/sdk-go/network"
 	"github.com/testground/sdk-go/runtime"
 	"github.com/testground/sdk-go/sync"
 
@@ -24,14 +23,8 @@ func Announce(runenv *runtime.RunEnv) (err error) {
 	client := sync.MustBoundClient(ctx, runenv)
 	defer client.Close()
 
-	netclient := network.NewClient(client, runenv)
-	runenv.RecordMessage("Waiting for network initialization")
-
-	netclient.MustWaitNetworkInitialized(ctx)
-	runenv.RecordMessage("Network initilization complete")
-
 	host := server.New(
-		// server.WithTTL(time.Millisecond*10),
+		server.WithLogger(testutil.ZapLogger(runenv)),
 		server.WithDiscover(&testutil.Discover{
 			RunEnv: runenv,
 			Client: client,

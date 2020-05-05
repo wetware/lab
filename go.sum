@@ -354,8 +354,6 @@ github.com/libp2p/go-yamux v1.3.6/go.mod h1:FGTiPvoV/3DVdgWpX+tM0OW3tsM+W5bSE3gZ
 github.com/lthibault/jitterbug v0.0.0-20200313035244-37ff5f417161 h1:mQGq+HLtDrr/+LXZCBCNcojKSb2jzF9WF6zq47ElXQE=
 github.com/lthibault/jitterbug v0.0.0-20200313035244-37ff5f417161/go.mod h1:UNNb1BaDpMESmC/+rTXiqOj/BXGzr+evo+sGNRCOMGo=
 github.com/lthibault/log v0.0.0-20190513014217-f549b3a28a20/go.mod h1:mkhKiE0tCpz+ChrbcLrpaDjng4Jb4EVFBDzez3cHdxY=
-github.com/lthibault/wetware v0.0.0-20200503195850-aaf77b5bafbb h1:pW3kpmuyeoV7o5lPRbdAQEWl1YsPDhnvYlO9fywAJxw=
-github.com/lthibault/wetware v0.0.0-20200503195850-aaf77b5bafbb/go.mod h1:LgIkVruiclhFy7tY4/CmNL7vz4TQonyN6ahgoGh0JFY=
 github.com/lthibault/wetware v0.0.0-20200505154120-51d09868a7ce h1:Ogi5B4W+gr3VV9ifB95LBcDwuxOfMbMTr3erOct5dWw=
 github.com/lthibault/wetware v0.0.0-20200505154120-51d09868a7ce/go.mod h1:LgIkVruiclhFy7tY4/CmNL7vz4TQonyN6ahgoGh0JFY=
 github.com/magiconair/properties v1.8.0/go.mod h1:PppfXfuXeibc/6YijjN8zIbojt8czPbwD3XqdrwzmxQ=
