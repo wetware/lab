@@ -4,14 +4,15 @@ import (
 	"context"
 	"time"
 
-	"github.com/libp2p/go-libp2p-core/event"
 	peer "github.com/libp2p/go-libp2p-core/peer"
-	"github.com/pkg/errors"
 
 	"github.com/testground/sdk-go/runtime"
 	"github.com/testground/sdk-go/sync"
 
+	ww "github.com/lthibault/wetware/pkg"
+	wwclient "github.com/lthibault/wetware/pkg/client"
 	"github.com/lthibault/wetware/pkg/server"
+
 	"github.com/lthibault/ww-test-plans/testutil"
 )
 
@@ -23,74 +24,94 @@ func Announce(runenv *runtime.RunEnv) (err error) {
 	client := sync.MustBoundClient(ctx, runenv)
 	defer client.Close()
 
-	host := server.New(
-		server.WithLogger(testutil.ZapLogger(runenv)),
-		server.WithDiscover(&testutil.Discover{
-			RunEnv: runenv,
-			Client: client,
-		}),
-	)
+	switch client.MustSignalAndWait(ctx, sync.State("init"), runenv.TestInstanceCount) {
+	case 1:
+		return announceClient(ctx, runenv, client)
+	default:
+		return announceHost(ctx, runenv, client)
+	}
+}
 
-	bus := host.EventBus()
-	sub, err := bus.Subscribe(new(event.EvtLocalAddressesUpdated))
+func announceClient(ctx context.Context, runenv *runtime.RunEnv, client *sync.Client) error {
+	ctx, cancel := context.WithCancel(ctx)
+	defer cancel()
+
+	runenv.RecordMessage("I am the client")
+	defer client.MustSignalEntry(context.Background(), sync.State("done"))
+
+	// Wait for at least one host to be available.  We're purposefully playing fast and
+	// loose to test dynamic joining of new hosts to an existing cluster.
+	b := client.MustBarrier(ctx, sync.State("ready"), 1)
+	if err := waitBarrier(ctx, b); err != nil {
+		return err
+	}
+
+	c, err := wwclient.Dial(ctx,
+		wwclient.WithLogger(testutil.ZapLogger(runenv)))
 	if err != nil {
 		return err
 	}
-	defer sub.Close()
+	defer c.Close()
 
-	if err = host.Start(); err != nil {
-		return errors.Wrap(err, "start host")
+	topic, err := c.Join("")
+	if err != nil {
+		return err
+	}
+	defer topic.Close()
+
+	sub, err := topic.Subscribe(ctx)
+	if err != nil {
+		return err
+	}
+
+	ps := make(map[peer.ID]struct{})
+	for msg := range sub.C {
+		hb, err := ww.UnmarshalHeartbeat(msg.GetData())
+		if err != nil {
+			return err
+		}
+
+		if _, ok := ps[hb.ID()]; ok {
+			continue
+		}
+
+		runenv.RecordMessage("got entry for %s", hb.ID())
+
+		// loop until at least one message from all peers was found.
+		if ps[hb.ID()] = struct{}{}; len(ps) == runenv.TestInstanceCount-1 {
+			break
+		}
+	}
+
+	return nil
+}
+
+func announceHost(ctx context.Context, runenv *runtime.RunEnv, client *sync.Client) error {
+	ctx, cancel := context.WithCancel(ctx)
+	defer cancel()
+
+	host := server.New(
+		server.WithLogger(testutil.ZapLogger(runenv)))
+	if err := host.Start(); err != nil {
+		return err
 	}
 	defer host.Close()
 
+	runenv.RecordMessage("%s ready", host.ID())
+
+	client.MustSignalEntry(ctx, sync.State("ready"))    // tell client we're good to go
+	b := client.MustBarrier(ctx, sync.State("done"), 1) // wait for client to terminate
+	waitBarrier(ctx, b)
+
+	return nil
+}
+
+func waitBarrier(ctx context.Context, b *sync.Barrier) (err error) {
 	select {
-	case <-sub.Out():
-		// Listen addr has been bound.  Wait a few moments for the announce loop to
-		// start and for heartbeats to propagate.
-		time.Sleep(time.Millisecond * 100)
+	case err = <-b.C:
 	case <-ctx.Done():
-		return ctx.Err()
+		err = ctx.Err()
 	}
 
-	// tests proper
-	peers := host.Peers()
-	runenv.SLogger().With("peers", peers).Debug("found peers")
-
-	switch {
-	case len(peers) != runenv.TestInstanceCount:
-		err = errors.Errorf("expected %d peers, found %d",
-			runenv.TestInstanceCount,
-			len(peers))
-	case !contains(peers, host.ID()):
-		err = errors.Errorf("%s not in peer set", host.ID())
-	case !duplicates(peers):
-		err = errors.New("duplicates detected")
-	}
-
-	if err != nil {
-		runenv.RecordFailure(err)
-	} else {
-		runenv.RecordSuccess()
-	}
-
-	return err
-}
-
-func contains(ps []peer.ID, p peer.ID) bool {
-	set := make(map[peer.ID]struct{})
-	for _, px := range ps {
-		set[px] = struct{}{}
-	}
-
-	_, ok := set[p]
-	return ok
-}
-
-func duplicates(ps []peer.ID) bool {
-	set := make(map[peer.ID]struct{})
-	for _, px := range ps {
-		set[px] = struct{}{}
-	}
-
-	return len(ps) != len(set)
+	return
 }

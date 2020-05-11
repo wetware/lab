@@ -2,11 +2,9 @@ package testutil
 
 import (
 	"context"
-	"math/rand"
 	"time"
 
 	"github.com/libp2p/go-libp2p-core/peer"
-	"github.com/pkg/errors"
 
 	"github.com/testground/sdk-go/runtime"
 	"github.com/testground/sdk-go/sync"
@@ -29,7 +27,12 @@ type Discover struct {
 }
 
 // DiscoverPeers over Testground sync service.
-func (d *Discover) DiscoverPeers(ctx context.Context) ([]peer.AddrInfo, error) {
+func (d *Discover) DiscoverPeers(ctx context.Context, opt ...discover.Option) (<-chan peer.AddrInfo, error) {
+	var p discover.Param
+	if err := p.Apply(opt); err != nil {
+		return nil, err
+	}
+
 	b, err := d.Client.Barrier(ctx, stateDiscoverReady, d.RunEnv.TestInstanceCount)
 	if err != nil {
 		return nil, err
@@ -39,37 +42,36 @@ func (d *Discover) DiscoverPeers(ctx context.Context) ([]peer.AddrInfo, error) {
 		return nil, err
 	}
 
+	// TODO:  open issue inquiring about purpose of sub (esp. sub.Done)
 	ch := make(chan peer.AddrInfo, 1)
-	sub, err := d.Client.Subscribe(ctx, topic, ch)
-	if err != nil {
+	if _, err = d.Client.Subscribe(ctx, topic, ch); err != nil {
 		return nil, err
 	}
 
-	addrs := make([]peer.AddrInfo, 0, d.RunEnv.TestInstanceCount-1)
-	for {
-		select {
-		case info := <-ch:
-			if info.ID != d.id {
-				addrs = append(addrs, info)
-			}
-		case <-sub.Done():
-			rand.Shuffle(d.RunEnv.TestInstanceCount-1, func(i, j int) {
-				addrs[i], addrs[j] = addrs[j], addrs[i]
-			})
+	out := make(chan peer.AddrInfo, 1)
+	go func() {
+		defer close(out)
 
-			switch len(addrs) {
-			case 0:
-				return nil, errors.New("subscription closed")
-			case 1, 2, 3:
-				return addrs, nil
-			default:
-				return addrs[:3], nil
+		remaining := p.Limit
+		for info := range ch {
+			if info.ID == d.id {
+				continue
 			}
-		case <-ctx.Done():
-			return nil, ctx.Err()
+
+			select {
+			case out <- info:
+				if p.Limit > 0 {
+					if remaining--; remaining == 0 {
+						return
+					}
+				}
+			case <-ctx.Done():
+				return
+			}
 		}
-	}
+	}()
 
+	return out, nil
 }
 
 // Start advertising the service in the background.  Does not block.
