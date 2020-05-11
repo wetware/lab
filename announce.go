@@ -99,9 +99,8 @@ func announceHost(ctx context.Context, runenv *runtime.RunEnv, client *sync.Clie
 
 	runenv.RecordMessage("%s ready", host.ID())
 
-	client.MustSignalEntry(ctx, sync.State("ready"))    // tell client we're good to go
-	b := client.MustBarrier(ctx, sync.State("done"), 1) // wait for client to terminate
-	waitBarrier(ctx, b)
+	client.MustSignalEntry(ctx, sync.State("ready"))   // tell client we're good to go
+	<-client.MustBarrier(ctx, sync.State("done"), 1).C // wait for client to terminate
 
 	return nil
 }

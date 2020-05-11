@@ -16,6 +16,8 @@ func main() {
 
 func run(runenv *runtime.RunEnv) error {
 	switch c := runenv.TestCase; c {
+	case "heartbeat":
+		return Heartbeat(runenv)
 	case "announce":
 		return Announce(runenv)
 	default:
