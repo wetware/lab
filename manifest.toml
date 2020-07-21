@@ -6,12 +6,12 @@ runner = "local:exec"
 [builders."docker:go"]
 enabled = true
 go_version = "1.14"
-module_path = "github.com/lthibault/ww-test-plans"
+module_path = "github.com/wetware/labtests"
 exec_pkg = "."
 
 [builders."exec:go"]
 enabled = true
-module_path = "github.com/lthibault/ww-test-plans"
+module_path = "github.com/wetware/labtests"
 
 [runners."local:docker"]
 enabled = true
@@ -26,13 +26,13 @@ enabled = true
 name = "announce"
 instances = { min = 2, max = 200, default = 5 }
 
-[[testcases]]
-# Test that heartbeat sequence numbers are monotonically increasing.  This is required
-# for the filter to work properly.
-name = "heartbeat"
-# Host routing can result in out-of-order delivery, so this testcase only supports one
-# instance
-instances = {min = 1, max = 1, default = 1}
+# [[testcases]]
+# # Test that heartbeat sequence numbers are monotonically increasing.  This is required
+# # for the filter to work properly.
+# name = "heartbeat"
+# # Host routing can result in out-of-order delivery, so this testcase only supports one
+# # instance
+# instances = {min = 1, max = 1, default = 1}
 
 # Add more testcases here...
 # [[testcases]]

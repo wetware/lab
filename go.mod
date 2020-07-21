@@ -1,4 +1,4 @@
-module github.com/lthibault/ww-test-plans
+module github.com/wetware/labtests
 
 go 1.14
 

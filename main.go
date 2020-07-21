@@ -8,6 +8,8 @@ import (
 	"github.com/pkg/errors"
 
 	"github.com/testground/sdk-go/runtime"
+
+	"github.com/wetware/labtests/plan/announce"
 )
 
 func main() {
@@ -16,10 +18,8 @@ func main() {
 
 func run(runenv *runtime.RunEnv) error {
 	switch c := runenv.TestCase; c {
-	case "heartbeat":
-		return Heartbeat(runenv)
 	case "announce":
-		return Announce(runenv)
+		return announce.TestPlan(runenv)
 	default:
 		return errors.Errorf("Unknown Testcase %s", c)
 	}

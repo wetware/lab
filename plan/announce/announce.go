@@ -1,4 +1,4 @@
-package main
+package announce
 
 import (
 	"context"
@@ -13,11 +13,12 @@ import (
 	wwclient "github.com/lthibault/wetware/pkg/client"
 	"github.com/lthibault/wetware/pkg/server"
 
-	"github.com/lthibault/ww-test-plans/testutil"
+	"github.com/wetware/labtests/testutil"
 )
 
-// Announce verifies that hosts are mutually aware of each others' presence.
-func Announce(runenv *runtime.RunEnv) (err error) {
+// TestPlan tests cluster-wise peer announcement.  It verifies that hosts are mutually
+// aware of each others' presence.
+func TestPlan(runenv *runtime.RunEnv) (err error) {
 	ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
 	defer cancel()
 
