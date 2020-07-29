@@ -14,12 +14,12 @@ import (
 )
 
 func main() {
-	run.Invoke(func(runenv *runtime.RunEnv) error {
+	run.Invoke(func(runenv *runtime.RunEnv, initc *run.InitContext) error {
 		switch c := runenv.TestCase; c {
 		case "canary":
-			return canary.RunTest(runenv)
+			return canary.RunTest(runenv, initc)
 		case "announce":
-			return announce.RunTest(runenv)
+			return announce.RunTest(runenv, initc)
 		default:
 			return errors.Errorf("Unknown Testcase %s", c)
 		}

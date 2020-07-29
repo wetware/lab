@@ -7,7 +7,6 @@ install: link
 	@ln -s $(WWPATH) ./extra/ww
 
 link:
-	@go mod tidy
 	@go mod edit -replace github.com/wetware/ww=$(PWD)/extra/ww
 
 clean:
