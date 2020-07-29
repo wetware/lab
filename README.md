@@ -21,22 +21,6 @@ Estimated time:  about 5 minutes
 2. Link this directory to your testground home directory with `ln -s <lab root>/test-plans <testground home>/plans/ww`.  Make sure you replace the root paths match those on your system.
 3. Run `testground plan list` and check that the `ww` plan appears.
 
-### Running test plans
+### Running test cases
 
-Estimated time:  about 5 minutes
-
-A test plan is a set of test cases.  To view the test cases for the `ww` plan:
-
-```bash
-testground describe --plan ww
-```
-
-To run the `announce` test case, run:
-
-```bash
-testground run single --plan ww --testcase announce --builder exec:go --runner local:exec --instances=2
-```
-
-To vary the number of peers in the test cluster, change `--instances=2`.  N.B.: most tests require at least `--instances=2`.  See `manifest.toml`.
-
-The test-case can be varied by changing the argument to the `--plan` flag.
+TODO
