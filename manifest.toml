@@ -1,4 +1,9 @@
 name = "ww"
+
+[extra_sources]
+"exec:go" = ["./extra/ww"]
+"docker:go" = ["./extra/ww"]
+
 [defaults]
 builder = "exec:go"
 runner = "local:exec"
@@ -6,12 +11,12 @@ runner = "local:exec"
 [builders."docker:go"]
 enabled = true
 go_version = "1.14"
-module_path = "github.com/wetware/labtests"
+module_path = "github.com/wetware/lab"
 exec_pkg = "."
 
 [builders."exec:go"]
 enabled = true
-module_path = "github.com/wetware/labtests"
+module_path = "github.com/wetware/lab"
 
 [runners."local:docker"]
 enabled = true
@@ -21,6 +26,10 @@ enabled = true
 
 [runners."cluster:k8s"]
 enabled = true
+
+[[testcases]]
+name = "canary"
+instances = {min = 1, max = 1, default = 1}
 
 [[testcases]]
 name = "announce"

@@ -6,21 +6,22 @@ package main
 
 import (
 	"github.com/pkg/errors"
-
+	"github.com/testground/sdk-go/run"
 	"github.com/testground/sdk-go/runtime"
 
-	"github.com/wetware/labtests/plan/announce"
+	"github.com/wetware/lab/test/announce"
+	"github.com/wetware/lab/test/canary"
 )
 
 func main() {
-	runtime.Invoke(run)
-}
-
-func run(runenv *runtime.RunEnv) error {
-	switch c := runenv.TestCase; c {
-	case "announce":
-		return announce.TestPlan(runenv)
-	default:
-		return errors.Errorf("Unknown Testcase %s", c)
-	}
+	run.Invoke(func(runenv *runtime.RunEnv) error {
+		switch c := runenv.TestCase; c {
+		case "canary":
+			return canary.RunTest(runenv)
+		case "announce":
+			return announce.RunTest(runenv)
+		default:
+			return errors.Errorf("Unknown Testcase %s", c)
+		}
+	})
 }

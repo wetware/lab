@@ -1,4 +1,4 @@
-package testutil
+package logutil
 
 import (
 	log "github.com/lthibault/log/pkg"
