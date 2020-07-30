@@ -1,8 +1,8 @@
 name = "ww"
 
 [extra_sources]
-"exec:go" = ["./extra/ww"]
-"docker:go" = ["./extra/ww"]
+"exec:go" = ["/Users/lthibault/go/src/github.com/wetware/ww"]
+"docker:go" = ["/Users/lthibault/go/src/github.com/wetware/ww"]
 
 [defaults]
 builder = "exec:go"

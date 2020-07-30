@@ -1,13 +1,7 @@
-WWPATH := $(GOPATH)/src/github.com/wetware/ww
-
-all: clean install
-
-install: link
-	@-mkdir ./extra
-	@ln -s $(WWPATH) ./extra/ww
+all: clean link
 
 link:
-	@go mod edit -replace github.com/wetware/ww=$(PWD)/extra/ww
+	@go mod edit -replace github.com/wetware/ww=$(GOPATH)/src/github.com/wetware/ww
 
 clean:
-	@rm -rf ./extra
+	@go mod edit -dropreplace github.com/wetware/ww
