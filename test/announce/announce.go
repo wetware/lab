@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/libp2p/go-libp2p-core/peer"
+	"github.com/pkg/errors"
 
 	"github.com/testground/sdk-go/run"
 	"github.com/testground/sdk-go/runtime"
@@ -14,6 +15,7 @@ import (
 	"github.com/wetware/ww/pkg/host"
 
 	lab "github.com/wetware/lab/pkg"
+	"github.com/wetware/lab/pkg/topology"
 )
 
 var (
@@ -41,7 +43,7 @@ func subscribeClient(ctx context.Context, runenv *runtime.RunEnv, initc *run.Ini
 	defer cancel()
 
 	runenv.RecordMessage("I am the client")
-	defer initc.SyncClient.MustSignalEntry(context.Background(), sync.State("done"))
+	defer initc.SyncClient.MustSignalEntry(context.Background(), stateDone)
 
 	c, err := dial(ctx, runenv, initc)
 	if err != nil {
@@ -49,6 +51,50 @@ func subscribeClient(ctx context.Context, runenv *runtime.RunEnv, initc *run.Ini
 	}
 	defer c.Close()
 
+	if err = testAnnounce(ctx, runenv, c); err != nil {
+		return errors.Wrap(err, "main test")
+	}
+
+	return nil
+}
+
+func announceHost(ctx context.Context, runenv *runtime.RunEnv, initc *run.InitContext) error {
+	ctx, cancel := context.WithCancel(ctx)
+	defer cancel()
+
+	b := lab.Boot(runenv, initc.SyncClient, topology.Line())
+
+	host, err := host.New(host.WithBootStrategy(b))
+	if err != nil {
+		return err
+	}
+	defer host.Close()
+
+	runenv.RecordMessage("%s is a host", host.ID())
+
+	initc.SyncClient.MustSignalEntry(ctx, stateReady)   // tell client we're good to go
+	<-initc.SyncClient.MustBarrier(ctx, stateDone, 1).C // wait for client to terminate
+
+	return nil
+}
+
+func dial(ctx context.Context, runenv *runtime.RunEnv, initc *run.InitContext) (c client.Client, err error) {
+	// Wait for at least one host to be available.  We're purposefully playing fast and
+	// loose to test dynamic joining of new hosts to an existing cluster.
+	ready := initc.SyncClient.MustBarrier(ctx, stateReady, 1)
+
+	select {
+	case err = <-ready.C:
+		b := lab.Boot(runenv, initc.SyncClient, topology.Random(1))
+		c, err = client.Dial(ctx, client.WithBootStrategy(b))
+	case <-ctx.Done():
+		err = ctx.Err()
+	}
+
+	return
+}
+
+func testAnnounce(ctx context.Context, runenv *runtime.RunEnv, c client.Client) error {
 	topic, err := c.Join("")
 	if err != nil {
 		return err
@@ -75,47 +121,4 @@ func subscribeClient(ctx context.Context, runenv *runtime.RunEnv, initc *run.Ini
 	}
 
 	return nil
-}
-
-func announceHost(ctx context.Context, runenv *runtime.RunEnv, initc *run.InitContext) error {
-	ctx, cancel := context.WithCancel(ctx)
-	defer cancel()
-
-	b := &lab.Bootstrapper{
-		RunEnv:     runenv,
-		SyncClient: initc.SyncClient,
-	}
-
-	host, err := host.New(host.WithBootStrategy(b))
-	if err != nil {
-		return err
-	}
-	defer host.Close()
-
-	runenv.RecordMessage("%s ready", host.ID())
-
-	initc.SyncClient.MustSignalEntry(ctx, stateReady)   // tell client we're good to go
-	<-initc.SyncClient.MustBarrier(ctx, stateDone, 1).C // wait for client to terminate
-
-	return nil
-}
-
-func dial(ctx context.Context, runenv *runtime.RunEnv, initc *run.InitContext) (c client.Client, err error) {
-	// Wait for at least one host to be available.  We're purposefully playing fast and
-	// loose to test dynamic joining of new hosts to an existing cluster.
-	ready := initc.SyncClient.MustBarrier(ctx, stateReady, 1)
-
-	select {
-	case err = <-ready.C:
-		b := &lab.Bootstrapper{
-			RunEnv:     runenv,
-			SyncClient: initc.SyncClient,
-		}
-
-		c, err = client.Dial(ctx, client.WithBootStrategy(b))
-	case <-ctx.Done():
-		err = ctx.Err()
-	}
-
-	return
 }

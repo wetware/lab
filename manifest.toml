@@ -1,31 +1,28 @@
 name = "ww"
 
-[extra_sources]
-"exec:go" = ["/Users/lthibault/go/src/github.com/wetware/ww"]
-"docker:go" = ["/Users/lthibault/go/src/github.com/wetware/ww"]
-
 [defaults]
-builder = "exec:go"
-runner = "local:exec"
+builder = "docker:go"
+runner = "local:docker"
 
 [builders."docker:go"]
 enabled = true
 go_version = "1.14"
+# fresh_gomod = true
 module_path = "github.com/wetware/lab"
 exec_pkg = "."
 
-[builders."exec:go"]
-enabled = true
-module_path = "github.com/wetware/lab"
+# [builders."exec:go"]
+# enabled = true
+# module_path = "github.com/wetware/lab"
 
 [runners."local:docker"]
 enabled = true
 
-[runners."local:exec"]
-enabled = true
+# [runners."local:exec"]
+# enabled = true
 
-[runners."cluster:k8s"]
-enabled = true
+# [runners."cluster:k8s"]
+# enabled = true
 
 [[testcases]]
 name = "canary"
