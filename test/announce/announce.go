@@ -2,26 +2,32 @@ package announce
 
 import (
 	"context"
+	"fmt"
+	"net"
 	"time"
 
 	"github.com/libp2p/go-libp2p-core/peer"
+	"github.com/multiformats/go-multiaddr"
 	"github.com/pkg/errors"
 
+	"github.com/testground/sdk-go/network"
 	"github.com/testground/sdk-go/run"
 	"github.com/testground/sdk-go/runtime"
 	"github.com/testground/sdk-go/sync"
 
+	"github.com/wetware/ww/pkg/boot"
 	"github.com/wetware/ww/pkg/client"
 	"github.com/wetware/ww/pkg/host"
+	wwrt "github.com/wetware/ww/pkg/runtime"
+	"github.com/wetware/ww/pkg/runtime/service"
 
 	lab "github.com/wetware/lab/pkg"
-	"github.com/wetware/lab/pkg/topology"
+	"github.com/wetware/lab/pkg/graph"
 )
 
 var (
-	stateInit  = sync.State("init")
-	stateReady = sync.State("ready")
-	stateDone  = sync.State("done")
+	stateInit = sync.State("init")
+	stateDone = sync.State("done")
 )
 
 // RunTest tests cluster-wise peer announcement.  It verifies that hosts are mutually
@@ -62,48 +68,67 @@ func announceHost(ctx context.Context, runenv *runtime.RunEnv, initc *run.InitCo
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
 
-	b := lab.Boot(runenv, initc.SyncClient, topology.Line())
-
-	host, err := host.New(host.WithBootStrategy(b))
+	h, err := mkhost(ctx, runenv, initc)
 	if err != nil {
 		return err
 	}
-	defer host.Close()
+	defer h.Close()
 
-	runenv.RecordMessage("%s is a host", host.ID())
+	if err = watchEvents(ctx, h, runenv); err != nil {
+		return err
+	}
 
-	initc.SyncClient.MustSignalEntry(ctx, stateReady)   // tell client we're good to go
+	runenv.RecordMessage("%s is a host", h.ID())
 	<-initc.SyncClient.MustBarrier(ctx, stateDone, 1).C // wait for client to terminate
 
 	return nil
 }
 
 func dial(ctx context.Context, runenv *runtime.RunEnv, initc *run.InitContext) (c client.Client, err error) {
-	// Wait for at least one host to be available.  We're purposefully playing fast and
-	// loose to test dynamic joining of new hosts to an existing cluster.
-	ready := initc.SyncClient.MustBarrier(ctx, stateReady, 1)
-
-	select {
-	case err = <-ready.C:
-		b := lab.Boot(runenv, initc.SyncClient, topology.Random(1))
-		c, err = client.Dial(ctx, client.WithBootStrategy(b))
-	case <-ctx.Done():
-		err = ctx.Err()
+	b := lab.GraphJoiner{
+		N:      runenv.TestInstanceCount - 1,
+		Client: initc.SyncClient,
+		T:      graph.Random(1),
 	}
 
-	return
+	return client.Dial(ctx,
+		client.WithStrategy(b))
+}
+
+func mkhost(ctx context.Context, runenv *runtime.RunEnv, initc *run.InitContext) (h host.Host, err error) {
+	var addr multiaddr.Multiaddr
+	if addr, err = listenAddr(initc.NetClient); err != nil {
+		return
+	}
+
+	if h, err = host.New(
+		host.WithBootStrategy(boot.StaticAddrs{}),
+		host.WithListenAddr(addr),
+	); err != nil {
+		return
+	}
+
+	if err = (lab.GraphBuilder{
+		N:      runenv.TestInstanceCount - 1,
+		Client: initc.SyncClient,
+		TF:     graph.Line(),
+	}).Build(ctx, h); err != nil {
+		return
+	}
+
+	return h, nil
 }
 
 func testAnnounce(ctx context.Context, runenv *runtime.RunEnv, c client.Client) error {
 	topic, err := c.Join("")
 	if err != nil {
-		return err
+		return errors.Wrap(err, "join topic")
 	}
 	defer topic.Close()
 
 	sub, err := topic.Subscribe(ctx)
 	if err != nil {
-		return err
+		return errors.Wrap(err, "subscribe topic")
 	}
 
 	ps := make(map[peer.ID]struct{})
@@ -121,4 +146,48 @@ func testAnnounce(ctx context.Context, runenv *runtime.RunEnv, c client.Client) 
 	}
 
 	return nil
+}
+
+func listenAddr(nc *network.Client) (multiaddr.Multiaddr, error) {
+	ip, err := nc.GetDataNetworkIP()
+	if err != nil {
+		return nil, err
+	}
+
+	var str string
+	if isIP4(ip) {
+		str = fmt.Sprintf("/ip4/%s/tcp/0", ip)
+	} else {
+		str = fmt.Sprintf("/ip6/%s/tcp/0", ip)
+	}
+
+	return multiaddr.NewMultiaddr(str)
+}
+
+func watchEvents(ctx context.Context, h host.Host, runenv *runtime.RunEnv) error {
+	sub, err := h.EventBus().Subscribe([]interface{}{
+		new(wwrt.Exception),
+		new(service.EvtPeerDiscovered),
+		new(service.EvtNeighborhoodChanged),
+	})
+	if err == nil {
+		go func() {
+			for v := range sub.Out() {
+				switch ev := v.(type) {
+				case wwrt.Exception:
+					runenv.RecordFailure(ev)
+				case service.EvtPeerDiscovered:
+					runenv.SLogger().Infof("discovered %s", peer.AddrInfo(ev))
+				case service.EvtNeighborhoodChanged:
+					runenv.SLogger().Infof("from %d to %d", ev.From, ev.To)
+				}
+			}
+		}()
+	}
+
+	return err
+}
+
+func isIP4(ip net.IP) bool {
+	return !(ip.To4() == nil)
 }
