@@ -2,10 +2,7 @@ package sim
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
-	"io"
-	"io/ioutil"
 	"sync"
 
 	"github.com/libp2p/go-eventbus"
@@ -21,62 +18,47 @@ import (
 	"github.com/wetware/casm/pkg/net"
 )
 
-type Graph struct {
-	Nodes []*Node `json:"nodes"`
-	Links []*Link `json:"links"`
-}
-
-func (g Graph) Loggable() map[string]interface{} {
-	return map[string]interface{}{
-		"type":  "graph",
-		"nodes": len(g.Nodes),
-		"links": len(g.Links),
-	}
-}
-
-type Node struct {
-	ID    string `json:"id"`
-	Group int    `json:"group"`
-}
-
-func (n Node) Loggable() map[string]interface{} {
-	return map[string]interface{}{
-		"type":  "node",
-		"id":    n.ID,
-		"group": n.Group,
-	}
-}
-
-type Link struct {
-	Source string `json:"source"`
-	Target string `json:"target"`
-	Value  int    `json:"value"`
-}
-
-func (l Link) Loggable() map[string]interface{} {
-	return map[string]interface{}{
-		"type":   "link",
-		"source": l.Source,
-		"target": l.Target,
-		"value":  l.Value,
-	}
-}
-
 type Cluster struct {
-	log log.Logger
-	mu  sync.RWMutex
-	env inproc.Env
-	ps  map[peer.ID]member
-	bus event.Bus
+	log   log.Logger
+	mu    sync.RWMutex
+	env   inproc.Env
+	ps    map[peer.ID]*member
+	bus   event.Bus
+	event event.Emitter // MembershipChanged
+	model *model
 }
 
-func NewCluster(log log.Logger) *Cluster {
-	return &Cluster{
-		log: log,
-		env: inproc.NewEnv(),
-		ps:  make(map[peer.ID]member),
-		bus: eventbus.NewBus(),
+func NewCluster(log log.Logger) (*Cluster, error) {
+	bus := eventbus.NewBus()
+
+	graphSub, err := bus.Subscribe([]interface{}{
+		new(NodeChanged),
+		new(LinkChanged),
+	})
+	if err != nil {
+		return nil, err
 	}
+
+	export, err := bus.Emitter(new(StateChanged))
+	if err != nil {
+		return nil, err
+	}
+
+	membership, err := bus.Emitter(new(NodeChanged))
+	if err != nil {
+		return nil, err
+	}
+
+	c := &Cluster{
+		log:   log,
+		env:   inproc.NewEnv(),
+		ps:    make(map[peer.ID]*member),
+		bus:   bus,
+		event: membership,
+		model: newModel(graphSub, export),
+	}
+
+	return c, nil
 }
 
 func (c *Cluster) Loggable() map[string]interface{} {
@@ -86,11 +68,7 @@ func (c *Cluster) Loggable() map[string]interface{} {
 }
 
 func (c *Cluster) Events(ctx context.Context) (event.Subscription, error) {
-	return c.bus.Subscribe([]interface{}{
-		new(Graph),
-		new(Node),
-		new(Link),
-	})
+	return c.bus.Subscribe(new(StateChanged))
 }
 
 func (c *Cluster) Close() error {
@@ -103,8 +81,11 @@ func (c *Cluster) Close() error {
 			return func() error { return c.Kill(id) }
 		}(id))
 	}
+	err := g.Wait()
 
-	return g.Wait()
+	return multierr.Combine(err,
+		c.event.Close(),
+		c.model.Close())
 }
 
 func (c *Cluster) Spawn(ctx context.Context) (peer.ID, error) {
@@ -121,6 +102,7 @@ func (c *Cluster) Spawn(ctx context.Context) (peer.ID, error) {
 		return "", err
 	}
 
+	// subscribe to host events
 	sub, err := h.EventBus().Subscribe(new(net.EvtState))
 	if err != nil {
 		defer h.Close()
@@ -128,75 +110,75 @@ func (c *Cluster) Spawn(ctx context.Context) (peer.ID, error) {
 		return "", err
 	}
 
-	if err := c.startEventLoop(sub.Out()); err != nil {
+	// bridge host events to the cluster bus
+	e, err := c.bus.Emitter(new(LinkChanged))
+	if err != nil {
 		return "", err
 	}
 
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
-	c.ps[h.ID()] = member{Host: h, Net: o, sub: sub}
-	return h.ID(), nil
+	c.ps[h.ID()] = newMember(h, o, sub, e)
+	defer c.log.WithField("peer", h.ID()).Info("spawned host")
+
+	return h.ID(), c.event.Emit(NodeChanged{
+		Event: HostSpawned,
+		Peer:  h.ID(),
+	})
 }
 
 func (c *Cluster) Kill(id peer.ID) error {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
-	if m, ok := c.ps[id]; ok {
-		defer delete(c.ps, id)
-		return m.Close()
+	m, ok := c.ps[id]
+	if !ok {
+		return errors.New("peer not found")
 	}
 
-	return errors.New("peer not found")
-}
+	defer delete(c.ps, id)
+	defer c.event.Emit(NodeChanged{
+		Event: HostDied,
+		Peer:  id,
+	})
 
-func (c *Cluster) startEventLoop(events <-chan interface{}) error {
-	// e, err := c.bus.Emitter(new(net.EvtState))
-	// if err != nil {
-	// 	defer h.Close()
-	// 	defer o.Close()
-	// 	return "", err
-	// }
+	return m.Close()
 
-	graph, err := c.bus.Emitter(new(Graph))
-	if err != nil {
-		return err
-	}
-
-	b, err := ioutil.ReadFile("internal/cmd/app/miserables.json")
-	if err != nil {
-		return err
-	}
-
-	var g Graph
-	if err = json.Unmarshal(b, &g); err != nil {
-		return err
-	}
-
-	if err = graph.Emit(g); err != nil {
-		return err
-	}
-
-	go func() {
-		defer graph.Close()
-
-		for _ = range events {
-			// _ = e.Emit(ev)
-		}
-
-	}()
-
-	return nil
 }
 
 type member struct {
 	Host host.Host
 	Net  *net.Overlay
 
-	sub io.Closer
+	sub event.Subscription
+}
+
+func newMember(h host.Host, o *net.Overlay, sub event.Subscription, e event.Emitter) *member {
+	m := &member{Host: h, Net: o, sub: sub}
+	go m.loop(e)
+	return m
 }
 
 func (m member) Close() error {
 	return multierr.Combine(m.Net.Close(), m.Host.Close(), m.sub.Close())
+}
+
+func (m member) loop(e event.Emitter) {
+	defer e.Close()
+
+	var (
+		out LinkChanged
+		ev  net.EvtState
+	)
+
+	for v := range m.sub.Out() {
+		switch ev = v.(net.EvtState); ev.Event {
+		case net.EventJoined:
+		case net.EventLeft:
+		}
+
+		out.Peers = link(m.Host.ID(), ev.Peer)
+		_ = e.Emit(out)
+	}
 }

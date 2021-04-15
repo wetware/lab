@@ -3,11 +3,11 @@ package cmd
 import (
 	"context"
 	"embed"
+	"encoding/json"
 	"errors"
 	"io"
 	"net"
 	"net/http"
-	"sync"
 
 	"github.com/go-chi/chi/v4"
 	"github.com/google/uuid"
@@ -47,7 +47,10 @@ func Start(log *Logger) *cli.Command {
 			},
 		},
 		Action: func(c *cli.Context) error {
-			svr := newServer(log)
+			svr, err := newServer(log)
+			if err != nil {
+				return err
+			}
 
 			r := chi.NewRouter()
 			r.Use(func(next http.Handler) http.Handler {
@@ -63,10 +66,26 @@ func Start(log *Logger) *cli.Command {
 			r.Get("/", func(w http.ResponseWriter, r *http.Request) {
 				http.Redirect(w, r, "/app/", http.StatusMovedPermanently)
 			})
-			r.Route("/events", func(r chi.Router) {
-				r.Get("/", svr.ServeNewCluster)
-				r.Get("/{clusterID}", svr.ServeCluster)
+			r.Get("/events", svr.ServeHTTP)
+			r.Route("/node", func(r chi.Router) {
+				r.Post("/", func(w http.ResponseWriter, r *http.Request) {
+					id, err := svr.c.Spawn(r.Context())
+					if err != nil {
+						http.Error(w, err.Error(), http.StatusInternalServerError)
+						return
+					}
 
+					if err = json.NewEncoder(w).Encode(struct {
+						ID peer.ID `json:"id"`
+					}{id}); err != nil {
+						log.WithError(err).Error("failed to return id of newly spawned host")
+					}
+				})
+
+				r.Delete("/", func(w http.ResponseWriter, r *http.Request) {
+					// TODO:  kill
+					http.Error(w, "NOT IMPLEMENTED", http.StatusNotImplemented)
+				})
 			})
 
 			l, err := net.Listen("tcp", c.String("addr"))
@@ -88,73 +107,79 @@ func Start(log *Logger) *cli.Command {
 
 type server struct {
 	log *Logger
+	c   *cluster
 
-	mu sync.RWMutex
-	cs map[string]*cluster
+	// mu sync.RWMutex
+	// cs map[string]*cluster
 }
 
-func newServer(log *Logger) *server {
+func newServer(log *Logger) (*server, error) {
+	u := uuid.New()
+	sc, err := sim.NewCluster(log.WithField("cluster", u).Logger)
+	if err != nil {
+		return nil, err
+	}
+
+	c := &cluster{ID: u, Cluster: sc}
+
 	return &server{
-		log: log,
-		cs:  make(map[string]*cluster),
+		log: log.With(c),
+		c:   c,
+	}, nil
+}
+
+func (s *server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	if err := s.serveHTTP(w, r); err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
 	}
 }
 
-func (s *server) ServeNewCluster(w http.ResponseWriter, r *http.Request) {
-	c := s.newCluster()
-	defer s.stopCluster(c.ID)
-
-	if status, err := s.serveCluster(w, r, c); err != nil {
-		http.Error(w, err.Error(), status)
-	}
-}
-
-func (s *server) ServeCluster(w http.ResponseWriter, r *http.Request) {
-	id, err := uuid.Parse(chi.URLParam(r, "clusterID"))
+func (s *server) serveHTTP(w http.ResponseWriter, r *http.Request) error {
+	sub, err := s.c.Events(r.Context())
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
-	}
-
-	c, ok := s.getCluster(id)
-	if !ok {
-		http.Error(w, "cluster not found", http.StatusNotFound)
-	}
-
-	if status, err := s.serveCluster(w, r, c); err != nil {
-		http.Error(w, err.Error(), status)
-	}
-}
-
-func (s *server) serveCluster(w http.ResponseWriter, r *http.Request, c *cluster) (int, error) {
-	sub, err := c.Events(r.Context())
-	if err != nil {
-		return http.StatusInternalServerError, err
+		return err
 	}
 	defer sub.Close()
 
 	conn, err := upgrader.Upgrade(w, r, nil)
 	if err != nil {
-		return http.StatusInternalServerError, err
+		return err
 	}
 	defer conn.Close()
 
-	// inform the client of the cluster ID.
-	if err = conn.WriteJSON(struct{ ClusterID uuid.UUID }{c.ID}); err != nil {
-		return http.StatusInternalServerError, err
+	// send the initial graph to the client
+	if err := s.sendGraph(conn); err != nil {
+		return err
 	}
 
 	g, ctx := errgroup.WithContext(r.Context())
-	g.Go(s.handleClusterEvents(ctx, conn, s.log.With(c), sub.Out()))
-	g.Go(s.handleUserEvents(ctx, conn, c))
+	g.Go(s.handleClusterEvents(ctx, conn, sub.Out()))
+	g.Go(s.handleUserEvents(ctx, conn))
 
 	if err := g.Wait(); err != nil && !errors.Is(err, io.EOF) {
-		return http.StatusInternalServerError, err
+		return err
 	}
 
-	return 0, nil
+	return nil
 }
 
-func (s *server) handleClusterEvents(ctx context.Context, conn *websocket.Conn, l *Logger, events <-chan interface{}) func() error {
+func (s *server) sendGraph(conn *websocket.Conn) error {
+	s.log.Warn("stub call to sendGraph (loading from JSON file)")
+
+	b, err := app.ReadFile("app/graph.json")
+	if err != nil {
+		return err
+	}
+
+	g := Graph{Cluster: s.c.ID}
+	if err = json.Unmarshal(b, &g); err != nil {
+		return err
+	}
+
+	return conn.WriteJSON(SimulationChanged{Graph: &g})
+}
+
+func (s *server) handleClusterEvents(ctx context.Context, conn *websocket.Conn, events <-chan interface{}) func() error {
 	return func() error {
 		for {
 			select {
@@ -163,9 +188,7 @@ func (s *server) handleClusterEvents(ctx context.Context, conn *websocket.Conn, 
 					return io.EOF
 				}
 
-				l.With(v.(log.Loggable)).Info("got cluster event")
-
-				if err := conn.WriteJSON(v); err != nil {
+				if err := s.sendStep(conn, v.(sim.StateChanged)); err != nil {
 					return err
 				}
 
@@ -175,12 +198,15 @@ func (s *server) handleClusterEvents(ctx context.Context, conn *websocket.Conn, 
 		}
 	}
 }
-func (s *server) handleUserEvents(ctx context.Context, conn *websocket.Conn, c *cluster) func() error {
 
-	var (
-		log = s.log.With(c)
-		ev  UserEvent
-	)
+func (s *server) sendStep(conn *websocket.Conn, ev sim.StateChanged) error {
+	return conn.WriteJSON(SimulationChanged{
+		Step: &ev,
+	})
+}
+
+func (s *server) handleUserEvents(ctx context.Context, conn *websocket.Conn) func() error {
+	var ev UserEvent
 
 	return func() error {
 		for {
@@ -188,14 +214,14 @@ func (s *server) handleUserEvents(ctx context.Context, conn *websocket.Conn, c *
 				return err
 			}
 
-			log.With(ev).Info("got user event")
+			s.log.With(ev).Info("got user event")
 
 			switch event := ev.Type().(type) {
 			case *Spawn:
 				for i := 0; i < event.N; i++ {
-					id, err := c.Spawn(ctx)
+					id, err := s.c.Spawn(ctx)
 					if err != nil {
-						log.WithError(err).Error("failed to spawn peer")
+						s.log.WithError(err).Error("failed to spawn peer")
 						continue
 					}
 
@@ -204,54 +230,60 @@ func (s *server) handleUserEvents(ctx context.Context, conn *websocket.Conn, c *
 
 			case *Kill:
 				for _, id := range event.Hosts {
-					if err := c.Kill(id); err != nil {
-						log.WithError(err).WithField("host", id).Error("failed to kill host")
+					if err := s.c.Kill(id); err != nil {
+						s.log.WithError(err).WithField("host", id).Error("failed to kill host")
 						continue
 					}
 
-					log.WithField("host", id).Debug("killed host")
+					s.log.WithField("host", id).Debug("killed host")
 				}
 			}
 		}
 	}
 }
 
-func (s *server) newCluster() *cluster {
-	s.mu.Lock()
-	defer s.mu.Unlock()
+// func (s *server) newCluster() (*cluster, error) {
+// 	u := uuid.New()
 
-	u := uuid.New()
-	c := &cluster{
-		ID:      u,
-		Cluster: sim.NewCluster(s.log.WithField("cluster", u).Logger),
-	}
+// 	sc, err := sim.NewCluster(s.log.WithField("cluster", u).Logger)
+// 	if err != nil {
+// 		return nil, err
+// 	}
 
-	s.cs[c.ID.String()] = c
-	return c
-}
+// 	s.mu.Lock()
+// 	defer s.mu.Unlock()
 
-func (s *server) getCluster(id uuid.UUID) (*cluster, bool) {
-	s.mu.RLock()
-	defer s.mu.RUnlock()
+// 	c := &cluster{
+// 		ID:      u,
+// 		Cluster: sc,
+// 	}
 
-	c, ok := s.cs[id.String()]
-	return c, ok
-}
+// 	s.cs[c.ID.String()] = c
+// 	return c, nil
+// }
 
-func (s *server) stopCluster(id uuid.UUID) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
+// func (s *server) getCluster(id uuid.UUID) (*cluster, bool) {
+// 	s.mu.RLock()
+// 	defer s.mu.RUnlock()
 
-	c := s.cs[id.String()]
-	if err := c.Close(); err != nil {
-		s.log.With(c).
-			WithField("uuid", id).
-			WithError(err).
-			Error("failed to close cluster")
-	}
+// 	c, ok := s.cs[id.String()]
+// 	return c, ok
+// }
 
-	delete(s.cs, id.String())
-}
+// func (s *server) stopCluster(id uuid.UUID) {
+// 	s.mu.Lock()
+// 	defer s.mu.Unlock()
+
+// 	c := s.cs[id.String()]
+// 	if err := c.Close(); err != nil {
+// 		s.log.With(c).
+// 			WithField("uuid", id).
+// 			WithError(err).
+// 			Error("failed to close cluster")
+// 	}
+
+// 	delete(s.cs, id.String())
+// }
 
 type cluster struct {
 	ID uuid.UUID

@@ -3,6 +3,7 @@ module github.com/wetware/lab
 go 1.16
 
 require (
+	github.com/deckarep/golang-set v1.7.1
 	github.com/go-chi/chi/v4 v4.0.0-rc1
 	github.com/google/uuid v1.2.0
 	github.com/gorilla/websocket v1.4.2
