@@ -26,33 +26,48 @@ let node = svg.append("g")
     .attr("stroke-width", 1.5)
     .selectAll("circle");
 
-
-connect({
-    url: eventurl(),
-    onstep: ({ nodes, links }) => {
-        // Make a shallow copy to protect against mutation, while
-        // recycling old nodes to preserve position and velocity.
-        const old = new Map(node.data().map(d => [d.id, d]));
-        nodes = nodes.map(d => Object.assign(old.get(d.id) || {}, d));
-        links = links.map(d => Object.assign({}, d));
-
-        node = node
-            .data(nodes, d => d.id)
-            .join(enter => enter.append("circle")
-                .attr("r", 5)
-                .call(drag(simulation))
-                .call(node => node.append("title").text(d => d.id)));
-
-        link = link
-            .data(links, d => [d.source, d.target])
-            .join("line");
-
-        simulation.nodes(nodes);
-        simulation.force("link").links(links);
-        simulation.alpha(1).restart().tick();
-        ticked(); // render now!
-    },
+window.addEventListener("DOMContentLoaded", () => {
+    connect({
+        url: eventurl(),
+        onstep: R.compose(simupdate, graphupdate, graphcopy),
+    });
 });
+
+// Make a shallow copy to protect against mutation, while
+// recycling old nodes to preserve position and velocity.
+const graphcopy = ({ nodes, links }) => {
+    const old = new Map(node.data().map(d => [d.id, d]));
+    nodes = nodes.map(d => Object.assign(old.get(d.id) || {}, d));
+    links = links.map(d => Object.assign({}, d));
+
+    return { nodes, links }
+}
+
+
+const graphupdate = ({ nodes, links }) => {
+    node = node
+        .data(nodes, d => d.id)
+        .join(enter => enter.append("circle")
+            .attr("r", 5)
+            .call(drag(simulation))
+            .call(node => node.append("title").text(d => d.id)));
+
+    link = link
+        .data(links, d => [d.source, d.target])
+        .join("line");
+
+
+    return { nodes, links };
+}
+
+const simupdate = ({ nodes, links }) => {
+    simulation.nodes(nodes);
+    simulation.force("link").links(links);
+    simulation.alpha(1).restart().tick();
+    ticked(); // render now!
+
+    return { nodes, links };
+}
 
 
 function ticked() {
