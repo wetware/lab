@@ -35,38 +35,36 @@ window.addEventListener("DOMContentLoaded", () => {
 
 // Make a shallow copy to protect against mutation, while
 // recycling old nodes to preserve position and velocity.
-const graphcopy = ({ nodes, links }) => {
+const graphcopy = graph => {
     const old = new Map(node.data().map(d => [d.id, d]));
-    nodes = nodes.map(d => Object.assign(old.get(d.id) || {}, d));
-    links = links.map(d => Object.assign({}, d));
+    graph.nodes = graph.nodes.map(d => Object.assign(old.get(d.id) || {}, d));
+    graph.links = graph.links.map(d => Object.assign({}, d));
 
-    return { nodes, links }
+    return graph;
 }
 
 
-const graphupdate = ({ nodes, links }) => {
+const graphupdate = graph => {
     node = node
-        .data(nodes, d => d.id)
+        .data(graph.nodes, d => d.id)
         .join(enter => enter.append("circle")
             .attr("r", 5)
             .call(drag(simulation))
             .call(node => node.append("title").text(d => d.id)));
 
     link = link
-        .data(links, d => [d.source, d.target])
+        .data(graph.links, d => [d.source, d.target])
         .join("line");
 
 
-    return { nodes, links };
+    return graph;
 }
 
-const simupdate = ({ nodes, links }) => {
-    simulation.nodes(nodes);
-    simulation.force("link").links(links);
+const simupdate = graph => {
+    simulation.nodes(graph.nodes);
+    simulation.force("link").links(graph.links);
     simulation.alpha(1).restart().tick();
     ticked(); // render now!
-
-    return { nodes, links };
 }
 
 
