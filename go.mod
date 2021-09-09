@@ -1,9 +1,10 @@
-module github.com/wetware/lab/plans/pex
+module github.com/wetware/lab
 
 go 1.17
 
 require (
 	github.com/libp2p/go-libp2p v0.15.0-rc.1
+	github.com/libp2p/go-libp2p-core v0.9.0
 	github.com/lthibault/log v1.2.0
 	github.com/testground/sdk-go v0.2.7
 	github.com/wetware/casm v0.0.0-20210908150336-8c6322874780
@@ -45,7 +46,6 @@ require (
 	github.com/libp2p/go-libp2p-autonat v0.4.2 // indirect
 	github.com/libp2p/go-libp2p-blankhost v0.2.0 // indirect
 	github.com/libp2p/go-libp2p-circuit v0.4.0 // indirect
-	github.com/libp2p/go-libp2p-core v0.9.0 // indirect
 	github.com/libp2p/go-libp2p-discovery v0.5.1 // indirect
 	github.com/libp2p/go-libp2p-mplex v0.4.1 // indirect
 	github.com/libp2p/go-libp2p-nat v0.0.6 // indirect

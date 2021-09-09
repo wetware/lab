@@ -7,7 +7,7 @@ package main
 import (
 	"github.com/testground/sdk-go/run"
 
-	"github.com/wetware/lab/plans/pex/tests/pex"
+	"github.com/wetware/lab/tests/pex"
 )
 
 func main() {

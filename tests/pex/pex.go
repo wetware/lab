@@ -12,7 +12,7 @@ import (
 	"github.com/testground/sdk-go/run"
 	"github.com/testground/sdk-go/runtime"
 	"github.com/wetware/casm/pkg/pex"
-	"github.com/wetware/lab/plans/pex/pkg/boot"
+	"github.com/wetware/lab/pkg/boot"
 )
 
 const ns = "casm.lab.pex"
