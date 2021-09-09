@@ -1,4 +1,4 @@
-name = "pex"
+name = "wetware"
 [defaults]
 builder = "exec:go"
 runner = "local:exec"
@@ -23,8 +23,8 @@ enabled = true
 enabled = true
 
 [[testcases]]
-name= "quickstart"
-instances = { min = 1, max = 5, default = 1 }
+name= "pex"
+instances = { min = 2, max = 64, default = 2 }
 
 # Add more testcases here...
 # [[testcases]]
