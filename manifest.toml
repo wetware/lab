@@ -1,0 +1,34 @@
+name = "pex"
+[defaults]
+builder = "exec:go"
+runner = "local:exec"
+
+[builders."docker:go"]
+enabled = true
+# go_version = "1.17"
+# module_path = "github.com/wetware/lab"
+exec_pkg = "."
+
+[builders."exec:go"]
+enabled = true
+# module_path = "github.com/wetware/lab"
+
+[runners."local:docker"]
+enabled = true
+
+[runners."local:exec"]
+enabled = true
+
+[runners."cluster:k8s"]
+enabled = true
+
+[[testcases]]
+name= "quickstart"
+instances = { min = 1, max = 5, default = 1 }
+
+# Add more testcases here...
+# [[testcases]]
+# name = "another"
+# instances = { min = 1, max = 1, default = 1 }
+#   [testcase.params]
+#   param1 = { type = "int", desc = "an integer", unit = "units", default = 3 }
