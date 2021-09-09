@@ -1,4 +1,4 @@
-name = "wetware"
+name = "casm"
 [defaults]
 builder = "exec:go"
 runner = "local:exec"
