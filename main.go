@@ -5,14 +5,20 @@
 package main
 
 import (
-	"github.com/testground/sdk-go/run"
+	"errors"
 
-	"github.com/wetware/lab/tests/pex"
+	"github.com/testground/sdk-go/run"
+	"github.com/testground/sdk-go/runtime"
 )
 
 func main() {
 	run.InvokeMap(map[string]interface{}{
-		"pex": pex.Run,
+		"stub": stub,
+		// "pex": pex.Run,
 		// "routing": routing.Run,
 	})
+}
+
+func stub(env *runtime.RunEnv, initCtx *run.InitContext) error {
+	return errors.New("it works!")
 }
