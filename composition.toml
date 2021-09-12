@@ -1,0 +1,24 @@
+[metadata]
+name    = "quickstart"
+author  = "your name here"
+
+[global]
+plan    = "casm"
+case    = "pex/strategy"
+builder = "docker:go"
+runner  = "local:docker"
+
+total_instances = 5
+
+[[groups]]
+id = "hybrid"
+instances = { count = 64 }
+
+  [groups.build]
+  dependencies = [
+        { module = "github.com/wetware/casm", target="github.com/wetware/casm", version = "TODO"},
+  ]
+
+[[groups]]
+id = "rand"
+instances = { count = 64 }

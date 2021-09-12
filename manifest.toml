@@ -8,6 +8,8 @@ enabled = true
 # go_version = "1.17"
 # module_path = "github.com/wetware/lab"
 exec_pkg = "."
+go_proxy_mode = "remote"
+go_proxy_url = "https://proxy.golang.org"
 
 [builders."exec:go"]
 enabled = true
@@ -23,12 +25,40 @@ enabled = true
 enabled = true
 
 [[testcases]]
-name= "pex"
+name= "pex/convergence"
 instances = { min = 2, max = 64, default = 2 }
+    [testcases.params]
+    tick = {type="int", default = 100}
+    convTickAmount = {type="int", default = 100}
 
-# Add more testcases here...
-# [[testcases]]
-# name = "another"
-# instances = { min = 1, max = 1, default = 1 }
-#   [testcase.params]
-#   param1 = { type = "int", desc = "an integer", unit = "units", default = 3 }
+[[testcases]]
+name= "pex/resiliency"
+instances = { min = 2, max = 64, default = 2 }
+    [testcases.params]
+    tick = {type="int", default = 100}
+    convTickAmount = {type="int", default = 100}
+    churn = {type="float", default = 0.2}
+
+[[testcases]]
+name= "pex/fanout"
+instances = { min = 2, max = 64, default = 2 }
+    [testcases.params]
+    tick = {type="int", default = 100}
+    convTickAmount = {type="int", default = 100}
+    fanout = {type="int", default = 2}
+
+[[testcases]]
+name= "pex/resiliency"
+instances = { min = 2, max = 64, default = 2 }
+    [testcases.params]
+    tick = {type="int", default = 100}
+    convTickAmount = {type="int", default = 100}
+    churn = {type="float", default = 0.2}
+
+[[testcases]]
+name= "pex/strategy"
+instances = { min = 2, max = 64, default = 2 }
+    [testcases.params]
+    tick = {type="int", default = 100}
+    convTickAmount = {type="int", default = 100}
+    

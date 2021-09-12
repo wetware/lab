@@ -12,7 +12,9 @@ import (
 
 func main() {
 	run.InvokeMap(map[string]interface{}{
-		"pex": pex.Run,
-		// "routing": routing.Run,
+		"pex/convergence": pex.RunConvergence,
+		"pex/resiliency": pex.RunResiliency,
+		"pex/fanout": pex.RunFanout,
+		"pex/strategy": pex.RunStrategy,
 	})
 }

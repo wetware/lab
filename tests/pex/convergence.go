@@ -18,7 +18,12 @@ import (
 const ns = "casm.lab.pex"
 
 // Run tests for PeX.
-func Run(env *runtime.RunEnv, initCtx *run.InitContext) error {
+func RunConvergence(env *runtime.RunEnv, initCtx *run.InitContext) error {
+	var (
+		tick = time.Millisecond*time.Duration(env.IntParam("tick")) // tick in miliseconds
+		convTickAmount = env.IntParam("convickAmount")
+	)
+
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
@@ -33,7 +38,6 @@ func Run(env *runtime.RunEnv, initCtx *run.InitContext) error {
 	}
 	defer h.Close()
 
-	tick := time.Millisecond*100
 	px, err := pex.New(h,
 		pex.WithNamespace(ns),              // make sure different tests don't interact with each other
 		pex.WithSelector(nil),              // change this to test different view seleciton policies
@@ -55,10 +59,8 @@ func Run(env *runtime.RunEnv, initCtx *run.InitContext) error {
 	}
 
 	// TODO:  actual test starts here
-	// Test 1: How fast does it converge?
-	time.Sleep(tick*100)
-
-	// Test 2: 
+	// Test 1: How fast does PeX converge on a uniform distribution of records?
+	time.Sleep(tick*time.Duration(convTickAmount))
 
 
 	return nil
