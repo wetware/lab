@@ -11,26 +11,26 @@ import (
 
 	"github.com/testground/sdk-go/run"
 	"github.com/testground/sdk-go/runtime"
+	"github.com/testground/sdk-go/sync"
 	"github.com/wetware/casm/pkg/pex"
 	"github.com/wetware/lab/pkg/boot"
 )
 
-const ns = "casm.lab.pex"
-
 // Run tests for PeX.
 func RunConvergence(env *runtime.RunEnv, initCtx *run.InitContext) error {
 	var (
-		tick = time.Millisecond*time.Duration(env.IntParam("tick")) // tick in miliseconds
+		tick           = time.Millisecond * time.Duration(env.IntParam("tick")) // tick in miliseconds
 		convTickAmount = env.IntParam("convickAmount")
 	)
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	d, err := boot.New(env, initCtx)
-	if err != nil {
-		return err
-	}
+	// instantiate a sync service client, binding it to the RunEnv.
+	client := sync.MustBoundClient(ctx, env)
+	defer client.Close()
+	// signal entry in the 'enrolled' state, and obtain a sequence number.
+	seq := client.MustSignalEntry(ctx, sync.State("enrolled"))
 
 	h, err := libp2p.New(context.Background())
 	if err != nil {
@@ -38,10 +38,15 @@ func RunConvergence(env *runtime.RunEnv, initCtx *run.InitContext) error {
 	}
 	defer h.Close()
 
+	d, err := boot.New(env, client, h, seq)
+	if err != nil {
+		return err
+	}
+
 	px, err := pex.New(h,
-		pex.WithNamespace(ns),              // make sure different tests don't interact with each other
-		pex.WithSelector(nil),              // change this to test different view seleciton policies
-		pex.WithTick(tick), // speed up the simulation
+		pex.WithNamespace(ns), // make sure different tests don't interact with each other
+		pex.WithSelector(nil), // change this to test different view seleciton policies
+		pex.WithTick(tick),    // speed up the simulation
 		pex.WithLogger(zaputil.Wrap(env.SLogger())))
 	if err != nil {
 		return err
@@ -60,8 +65,7 @@ func RunConvergence(env *runtime.RunEnv, initCtx *run.InitContext) error {
 
 	// TODO:  actual test starts here
 	// Test 1: How fast does PeX converge on a uniform distribution of records?
-	time.Sleep(tick*time.Duration(convTickAmount))
-
+	time.Sleep(tick * time.Duration(convTickAmount))
 
 	return nil
 }

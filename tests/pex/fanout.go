@@ -16,31 +16,22 @@ import (
 	"github.com/wetware/lab/pkg/boot"
 )
 
-const ns = "casm.lab.pex"
-
 // Run tests for PeX.
 func RunFanout(env *runtime.RunEnv, initCtx *run.InitContext) error {
 	var (
-		tick = time.Millisecond*time.Duration(env.IntParam("tick")) // tick in miliseconds
+		tick           = time.Millisecond * time.Duration(env.IntParam("tick")) // tick in miliseconds
 		convTickAmount = env.IntParam("convickAmount")
-		fanout = env.IntParam("fanout")  // churn amount in percentage
+		fanout         = env.IntParam("fanout") // churn amount in percentage
 	)
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
 	// instantiate a sync service client, binding it to the RunEnv.
-	enrolledState := sync.State("enrolled")
 	client := sync.MustBoundClient(ctx, env)
 	defer client.Close()
-
 	// signal entry in the 'enrolled' state, and obtain a sequence number.
-	seq := client.MustSignalEntry(ctx, enrolledState)
-
-	d, err := boot.New(env, initCtx)
-	if err != nil {
-		return err
-	}
+	seq := client.MustSignalEntry(ctx, sync.State("enrolled"))
 
 	h, err := libp2p.New(context.Background())
 	if err != nil {
@@ -48,11 +39,16 @@ func RunFanout(env *runtime.RunEnv, initCtx *run.InitContext) error {
 	}
 	defer h.Close()
 
-	fanout = 2  // TODO: set fanout
+	d, err := boot.New(env, client, h, seq)
+	if err != nil {
+		return err
+	}
+
+	fanout = 2 // TODO: set fanout
 	px, err := pex.New(h,
-		pex.WithNamespace(ns),              // make sure different tests don't interact with each other
-		pex.WithSelector(nil),              // change this to test different view seleciton policies
-		pex.WithTick(tick), // speed up the simulation
+		pex.WithNamespace(ns), // make sure different tests don't interact with each other
+		pex.WithSelector(nil), // change this to test different view seleciton policies
+		pex.WithTick(tick),    // speed up the simulation
 		pex.WithLogger(zaputil.Wrap(env.SLogger())))
 	if err != nil {
 		return err
@@ -71,7 +67,7 @@ func RunFanout(env *runtime.RunEnv, initCtx *run.InitContext) error {
 
 	// TODO:  actual test starts here
 	// Test 4: How does increasing the fanout during each gossip round affect the convergence rate?
-	time.Sleep(tick*time.Duration(convTickAmount))
+	time.Sleep(tick * time.Duration(convTickAmount))
 
 	return nil
 }

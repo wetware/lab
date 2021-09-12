@@ -16,13 +16,11 @@ import (
 	"github.com/wetware/lab/pkg/boot"
 )
 
-const ns = "casm.lab.pex"
-
 // Run tests for PeX.
 func RunStrategy(env *runtime.RunEnv, initCtx *run.InitContext) error {
 	// TODO: use pure rand strategy
 	var (
-		tick = time.Millisecond*time.Duration(env.IntParam("tick")) // tick in miliseconds
+		tick           = time.Millisecond * time.Duration(env.IntParam("tick")) // tick in miliseconds
 		convTickAmount = env.IntParam("convickAmount")
 	)
 
@@ -30,17 +28,10 @@ func RunStrategy(env *runtime.RunEnv, initCtx *run.InitContext) error {
 	defer cancel()
 
 	// instantiate a sync service client, binding it to the RunEnv.
-	enrolledState := sync.State("enrolled")
 	client := sync.MustBoundClient(ctx, env)
 	defer client.Close()
-
 	// signal entry in the 'enrolled' state, and obtain a sequence number.
-	seq := client.MustSignalEntry(ctx, enrolledState)
-
-	d, err := boot.New(env, initCtx)
-	if err != nil {
-		return err
-	}
+	seq := client.MustSignalEntry(ctx, sync.State("enrolled"))
 
 	h, err := libp2p.New(context.Background())
 	if err != nil {
@@ -48,10 +39,15 @@ func RunStrategy(env *runtime.RunEnv, initCtx *run.InitContext) error {
 	}
 	defer h.Close()
 
+	d, err := boot.New(env, client, h, seq)
+	if err != nil {
+		return err
+	}
+
 	px, err := pex.New(h,
-		pex.WithNamespace(ns),              // make sure different tests don't interact with each other
-		pex.WithSelector(nil),              // change this to test different view seleciton policies
-		pex.WithTick(tick), // speed up the simulation
+		pex.WithNamespace(ns), // make sure different tests don't interact with each other
+		pex.WithSelector(nil), // change this to test different view seleciton policies
+		pex.WithTick(tick),    // speed up the simulation
 		pex.WithLogger(zaputil.Wrap(env.SLogger())))
 	if err != nil {
 		return err
@@ -70,7 +66,7 @@ func RunStrategy(env *runtime.RunEnv, initCtx *run.InitContext) error {
 
 	// TODO:  actual test starts here
 	// Test 5: How does a pure-rand strategy affect the convergence rate relative to the current (hybrid) strategy?
-	time.Sleep(tick*time.Duration(convTickAmount))
+	time.Sleep(tick * time.Duration(convTickAmount))
 
 	return nil
 }
