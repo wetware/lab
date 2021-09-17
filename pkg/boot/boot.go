@@ -11,6 +11,7 @@ import (
 	peerstore "github.com/libp2p/go-libp2p-core/peerstore"
 	"github.com/testground/sdk-go/runtime"
 	"github.com/testground/sdk-go/sync"
+	pexboot "github.com/wetware/casm/pkg/boot"
 )
 
 const ringTopic = "ring"
@@ -19,68 +20,61 @@ type RedisDiscovery struct{
 	env *runtime.RunEnv
 	client sync.Client 
 	h host.Host
-	seq int64
-	tch chan *peer.AddrInfo
-	subscribed bool
+	t Topology
+	neighbors pexboot.StaticAddrs
+	found bool
 }
 type DiscoverInfo struct{
 }
 
-func New(env *runtime.RunEnv, client sync.Client, h host.Host, seq int64) (*RedisDiscovery, error) {
-	r := &RedisDiscovery{env, client, h, seq, make(chan *peer.AddrInfo), false}
+func New(env *runtime.RunEnv, client sync.Client, h host.Host, ns string) (*RedisDiscovery, error) {
+	r := &RedisDiscovery{env, client, h, &Ring{}, make(pexboot.StaticAddrs, 0,2), false}
+	
+	tch := make(chan *peer.AddrInfo)
+	topic := fmt.Sprintf("%v.%v", ns, r.t.Name())
+	subscribe(client, tch, topic)
+	r.syncState(sync.State("subscribed"))
+	st := sync.NewTopic(topic, &peer.AddrInfo{})
+	r.client.Publish(context.Background(), st, host.InfoFromHost(r.h))
+
+	boot := make(pexboot.StaticAddrs, 0)
+	for i:=0;i<env.TestInstanceCount;i++{
+		p := *<-tch
+		boot = append(boot, p)
+	}
+	r.syncState(sync.State("received"))
+	r.neighbors = r.t.GetNeighbors(h.ID(), boot)
 	return r, nil
 }
 
 func (r *RedisDiscovery) Advertise(ctx context.Context, ns string, opt ...discovery.Option) (ttl time.Duration, err error) {
 	// Subscribe to ring neighbors advertisements
-	if !r.subscribed{
-		n1, n2 := ringNeighbors(r.env, r.seq)
-		t1 := fmt.Sprintf("%v.%v.%v", ns, ringTopic, n1)
-		t2 := fmt.Sprintf("%v.%v.%v", ns, ringTopic, n2)
-		r.subscribe(t1)
-		r.subscribe(t2)
-		err = r.syncState(sync.State("subscribed"));
-		r.subscribed = true
-	}
+	// NOP: just need to publish one time the peerID on New()
 	
-	// Advertise
-	topic := fmt.Sprintf("%v.%v.%v", ns, ringTopic, r.seq)
-	st := sync.NewTopic(topic, &peer.AddrInfo{})
-	r.client.Publish(ctx, st, host.InfoFromHost(r.h))
 	return peerstore.PermanentAddrTTL, nil
 	
 }
 
 func (r *RedisDiscovery) FindPeers(ctx context.Context, ns string, opt ...discovery.Option) (<-chan peer.AddrInfo, error) {
 	ch := make(chan peer.AddrInfo, 2)
-	ch <- *<-r.tch  // ring neighbor 1
-	ch <- *<-r.tch // ring neighbor 2
+	for _, n := range r.neighbors{
+		ch <- n
+	}
 	close(ch)
 	return ch, nil
 }
 
-func (r *RedisDiscovery) subscribe(topic string) error{
+func subscribe(client sync.Client, tch chan *peer.AddrInfo, topic string) error{
 	st := sync.NewTopic(topic, &peer.AddrInfo{})
-	r.env.RecordMessage("Subscribed to %s", topic)
-	_, err := r.client.Subscribe(context.Background(), st, r.tch)
+	_, err := client.Subscribe(context.Background(), st, tch)
 	if err != nil {
 		panic(err)
 	}
 	return nil
 }
 
-
 func (r *RedisDiscovery) syncState(state sync.State) error{
 	r.client.MustSignalEntry(context.Background(), state)
 	err := <-r.client.MustBarrier(context.Background(), state, r.env.TestInstanceCount).C
 	return err
-}
-
-func ringNeighbors(env *runtime.RunEnv, seq int64) (n1, n2 int64){
-	n1 = (seq + 1)%int64(env.TestInstanceCount)
-	n2 = seq -1
-	if n2 < 0{
-		return n1, int64(env.TestInstanceCount)-1
-	}
-	return 
 }

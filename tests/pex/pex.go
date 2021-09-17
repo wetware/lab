@@ -17,7 +17,6 @@ func viewMetricsLoop(env *runtime.RunEnv, ctx context.Context, h host.Host, sub 
 	for {
 		select {
 		case v := <-sub.Out():
-			env.RecordMessage("Sending metric tick %d", tick)
 			view := []*pex.GossipRecord(v.(pex.EvtViewUpdated))
 			viewString := ""
 			for _, pr := range view{
@@ -25,7 +24,6 @@ func viewMetricsLoop(env *runtime.RunEnv, ctx context.Context, h host.Host, sub 
 			}
 			name := fmt.Sprintf("view,peer=%v,records=%v,tick=%v", h.ID(), viewString, tick)
 			env.D().RecordPoint(name, 0)  // The value is not used
-			env.RecordMessage("Sent metric tick %d", tick)
 
 			tick += 1
 		case <-ctx.Done():

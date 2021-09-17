@@ -7,7 +7,7 @@ require (
 	github.com/libp2p/go-libp2p-core v0.9.0
 	github.com/lthibault/log v1.2.1
 	github.com/testground/sdk-go v0.2.7
-	github.com/wetware/casm v0.0.0-20210917003411-76d2ac26f1b4
+	github.com/wetware/casm v0.0.0-20210917190611-b58475252b3d
 )
 
 require (
@@ -73,6 +73,7 @@ require (
 	github.com/libp2p/go-tcp-transport v0.2.8 // indirect
 	github.com/libp2p/go-ws-transport v0.5.0 // indirect
 	github.com/libp2p/go-yamux/v2 v2.2.0 // indirect
+	github.com/lthibault/jitterbug/v2 v2.2.2 // indirect
 	github.com/lthibault/util v0.0.10 // indirect
 	github.com/marten-seemann/tcp v0.0.0-20210406111302-dfbc87cc63fd // indirect
 	github.com/mattn/go-isatty v0.0.14 // indirect

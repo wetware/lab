@@ -10,7 +10,6 @@ import (
 
 	"github.com/testground/sdk-go/run"
 	"github.com/testground/sdk-go/runtime"
-	"github.com/testground/sdk-go/sync"
 	"github.com/wetware/casm/pkg/pex"
 	"github.com/wetware/lab/pkg/boot"
 )
@@ -27,8 +26,6 @@ func RunConvergence(env *runtime.RunEnv, initCtx *run.InitContext) error {
 
 	// instantiate a sync service client, binding it to the RunEnv.
 	client := initCtx.SyncClient
-	// signal entry in the 'enrolled' state, and obtain a sequence number.
-	seq := client.MustSignalEntry(ctx, sync.State("enrolled"))
 
 	h, err := libp2p.New(context.Background())
 	if err != nil {
@@ -41,13 +38,7 @@ func RunConvergence(env *runtime.RunEnv, initCtx *run.InitContext) error {
 	}
 	go viewMetricsLoop(env, ctx, h, sub)
 
-	d, err := boot.New(env, client, h, seq)
-	if err != nil {
-		return err
-	}
-
-	// Advertise-Find peers through testground sync sdk
-	_, err = d.Advertise(ctx, ns)
+	d, err := boot.New(env, client, h, ns)
 	if err != nil {
 		return err
 	}
@@ -65,14 +56,24 @@ func RunConvergence(env *runtime.RunEnv, initCtx *run.InitContext) error {
 	// Advertise triggers a gossip round.  When a 'PeerExchange' instance
 	// is provided to a 'PubSub' instance, this method will be called in
 	// a loop with the interval specified by the TTL return value.
-	_, err = px.Advertise(ctx, ns)
-	if err != nil {
-		return err
+	env.RecordMessage("Entering loop")
+	for i:=0; i<convTickAmount; i++{
+		env.RecordMessage("Advertising %d...", i)
+		_, err = px.Advertise(ctx, ns)
+		env.RecordMessage("Advertised %d", i)
+		if err != nil {
+			return err
+		}
+		env.RecordMessage("Sleeping %d...", i)
+		time.Sleep(tick)
+		env.RecordMessage("Awaken %d", i)
 	}
+	env.RecordMessage("Leaving loop")
+	
 
 	// TODO:  actual test starts here
 	// Test 1: How fast does PeX converge on a uniform distribution of records?
-	time.Sleep(tick * time.Duration(convTickAmount))
+	
 	env.RecordSuccess()
 
 	return nil
