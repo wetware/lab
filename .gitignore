@@ -16,3 +16,8 @@
 
 .envrc
 cmd/scratch/**
+
+# Python
+.idea
+venv
+.ipynb*

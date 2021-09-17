@@ -20,8 +20,8 @@ import (
 func RunFanout(env *runtime.RunEnv, initCtx *run.InitContext) error {
 	var (
 		tick           = time.Millisecond * time.Duration(env.IntParam("tick")) // tick in miliseconds
-		convTickAmount = env.IntParam("convickAmount")
-		fanout         = env.IntParam("fanout") // churn amount in percentage
+		convTickAmount = env.IntParam("convTickAmount")
+		// TODO: fanout         = env.IntParam("fanout") // churn amount in percentage
 	)
 
 	ctx, cancel := context.WithCancel(context.Background())
@@ -44,7 +44,6 @@ func RunFanout(env *runtime.RunEnv, initCtx *run.InitContext) error {
 		return err
 	}
 
-	fanout = 2 // TODO: set fanout
 	px, err := pex.New(h,
 		pex.WithNamespace(ns), // make sure different tests don't interact with each other
 		pex.WithSelector(nil), // change this to test different view seleciton policies

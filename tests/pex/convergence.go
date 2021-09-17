@@ -20,7 +20,7 @@ import (
 func RunConvergence(env *runtime.RunEnv, initCtx *run.InitContext) error {
 	var (
 		tick           = time.Millisecond * time.Duration(env.IntParam("tick")) // tick in miliseconds
-		convTickAmount = env.IntParam("convickAmount")
+		convTickAmount = env.IntParam("convTickAmount")
 	)
 
 	ctx, cancel := context.WithCancel(context.Background())
@@ -37,6 +37,11 @@ func RunConvergence(env *runtime.RunEnv, initCtx *run.InitContext) error {
 		return err
 	}
 	defer h.Close()
+	sub, err := h.EventBus().Subscribe(new(pex.EvtViewUpdated))
+	if err !=nil{
+		return err
+	}
+	go viewMetricsLoop(env, ctx, h, sub)
 
 	d, err := boot.New(env, client, h, seq)
 	if err != nil {
@@ -52,6 +57,11 @@ func RunConvergence(env *runtime.RunEnv, initCtx *run.InitContext) error {
 		return err
 	}
 
+	// Advertise-Find peers through testground sync sdk
+	_, err = d.Advertise(ctx, ns)
+	if err != nil {
+		return err
+	}
 	ps, err := d.FindPeers(ctx, ns, discovery.Limit(1))
 	if err != nil {
 		return err

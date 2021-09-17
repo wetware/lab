@@ -20,7 +20,7 @@ import (
 func RunResiliency(env *runtime.RunEnv, initCtx *run.InitContext) error {
 	var (
 		tick           = time.Millisecond * time.Duration(env.IntParam("tick")) // tick in miliseconds
-		convTickAmount = env.IntParam("convickAmount")
+		convTickAmount = env.IntParam("convTickAmount")
 		churn          = env.FloatParam("churn") // churn amount in percentage
 	)
 

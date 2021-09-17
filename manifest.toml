@@ -25,14 +25,14 @@ enabled = true
 enabled = true
 
 [[testcases]]
-name= "pex/convergence"
+name= "pex-convergence"
 instances = { min = 2, max = 64, default = 2 }
     [testcases.params]
     tick = {type="int", default = 100}
     convTickAmount = {type="int", default = 100}
 
 [[testcases]]
-name= "pex/resiliency"
+name= "pex-resiliency"
 instances = { min = 2, max = 64, default = 2 }
     [testcases.params]
     tick = {type="int", default = 100}
@@ -40,7 +40,7 @@ instances = { min = 2, max = 64, default = 2 }
     churn = {type="float", default = 0.2}
 
 [[testcases]]
-name= "pex/fanout"
+name= "pex-fanout"
 instances = { min = 2, max = 64, default = 2 }
     [testcases.params]
     tick = {type="int", default = 100}
@@ -48,7 +48,7 @@ instances = { min = 2, max = 64, default = 2 }
     fanout = {type="int", default = 2}
 
 [[testcases]]
-name= "pex/resiliency"
+name= "pex-resiliency"
 instances = { min = 2, max = 64, default = 2 }
     [testcases.params]
     tick = {type="int", default = 100}
@@ -56,7 +56,7 @@ instances = { min = 2, max = 64, default = 2 }
     churn = {type="float", default = 0.2}
 
 [[testcases]]
-name= "pex/strategy"
+name= "pex-strategy"
 instances = { min = 2, max = 64, default = 2 }
     [testcases.params]
     tick = {type="int", default = 100}

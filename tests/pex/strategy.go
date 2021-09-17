@@ -21,7 +21,7 @@ func RunStrategy(env *runtime.RunEnv, initCtx *run.InitContext) error {
 	// TODO: use pure rand strategy
 	var (
 		tick           = time.Millisecond * time.Duration(env.IntParam("tick")) // tick in miliseconds
-		convTickAmount = env.IntParam("convickAmount")
+		convTickAmount = env.IntParam("convTickAmount")
 	)
 
 	ctx, cancel := context.WithCancel(context.Background())
