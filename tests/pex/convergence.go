@@ -7,7 +7,6 @@ import (
 	zaputil "github.com/lthibault/log/util/zap"
 
 	"github.com/libp2p/go-libp2p"
-	"github.com/libp2p/go-libp2p-core/discovery"
 
 	"github.com/testground/sdk-go/run"
 	"github.com/testground/sdk-go/runtime"
@@ -48,7 +47,14 @@ func RunConvergence(env *runtime.RunEnv, initCtx *run.InitContext) error {
 		return err
 	}
 
+	// Advertise-Find peers through testground sync sdk
+	_, err = d.Advertise(ctx, ns)
+	if err != nil {
+		return err
+	}
+
 	px, err := pex.New(h,
+		pex.WithDiscovery(d),		
 		pex.WithNamespace(ns), // make sure different tests don't interact with each other
 		pex.WithSelector(nil), // change this to test different view seleciton policies
 		pex.WithTick(tick),    // speed up the simulation
@@ -57,20 +63,14 @@ func RunConvergence(env *runtime.RunEnv, initCtx *run.InitContext) error {
 		return err
 	}
 
-	// Advertise-Find peers through testground sync sdk
-	_, err = d.Advertise(ctx, ns)
+	
+	
+	// Advertise triggers a gossip round.  When a 'PeerExchange' instance
+	// is provided to a 'PubSub' instance, this method will be called in
+	// a loop with the interval specified by the TTL return value.
+	_, err = px.Advertise(ctx, ns)
 	if err != nil {
 		return err
-	}
-	ps, err := d.FindPeers(ctx, ns, discovery.Limit(1))
-	if err != nil {
-		return err
-	}
-
-	for info := range ps {
-		if err := px.Join(ctx, info); err != nil {
-			return err
-		}
 	}
 
 	// TODO:  actual test starts here
