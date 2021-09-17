@@ -5,9 +5,9 @@ go 1.17
 require (
 	github.com/libp2p/go-libp2p v0.15.0
 	github.com/libp2p/go-libp2p-core v0.9.0
-	github.com/lthibault/log v1.2.0
+	github.com/lthibault/log v1.2.1
 	github.com/testground/sdk-go v0.2.7
-	github.com/wetware/casm v0.0.0-20210915062705-f5d4368b5bcb
+	github.com/wetware/casm v0.0.0-20210917003411-76d2ac26f1b4
 )
 
 require (
@@ -39,6 +39,7 @@ require (
 	github.com/jackpal/go-nat-pmp v1.0.2 // indirect
 	github.com/jbenet/go-temp-err-catcher v0.1.0 // indirect
 	github.com/jbenet/goprocess v0.1.4 // indirect
+	github.com/jpillora/backoff v1.0.0 // indirect
 	github.com/klauspost/cpuid/v2 v2.0.9 // indirect
 	github.com/koron/go-ssdp v0.0.2 // indirect
 	github.com/libp2p/go-addr-util v0.1.0 // indirect

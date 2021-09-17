@@ -26,8 +26,7 @@ func RunConvergence(env *runtime.RunEnv, initCtx *run.InitContext) error {
 	defer cancel()
 
 	// instantiate a sync service client, binding it to the RunEnv.
-	client := sync.MustBoundClient(ctx, env)
-	defer client.Close()
+	client := initCtx.SyncClient
 	// signal entry in the 'enrolled' state, and obtain a sequence number.
 	seq := client.MustSignalEntry(ctx, sync.State("enrolled"))
 
@@ -53,10 +52,8 @@ func RunConvergence(env *runtime.RunEnv, initCtx *run.InitContext) error {
 		return err
 	}
 
-	px, err := pex.New(h,
+	px, err := pex.New(ctx, h,
 		pex.WithDiscovery(d),		
-		pex.WithNamespace(ns), // make sure different tests don't interact with each other
-		pex.WithSelector(nil), // change this to test different view seleciton policies
 		pex.WithTick(tick),    // speed up the simulation
 		pex.WithLogger(zaputil.Wrap(env.SLogger())))
 	if err != nil {
@@ -76,6 +73,7 @@ func RunConvergence(env *runtime.RunEnv, initCtx *run.InitContext) error {
 	// TODO:  actual test starts here
 	// Test 1: How fast does PeX converge on a uniform distribution of records?
 	time.Sleep(tick * time.Duration(convTickAmount))
+	env.RecordSuccess()
 
 	return nil
 }

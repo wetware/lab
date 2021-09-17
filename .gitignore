@@ -21,3 +21,7 @@ cmd/scratch/**
 .idea
 venv
 .ipynb*
+
+# Output files
+.csv
+.peers

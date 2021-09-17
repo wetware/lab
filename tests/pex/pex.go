@@ -17,13 +17,16 @@ func viewMetricsLoop(env *runtime.RunEnv, ctx context.Context, h host.Host, sub 
 	for {
 		select {
 		case v := <-sub.Out():
-			view := pex.View(v.(pex.EvtViewUpdated))
+			env.RecordMessage("Sending metric tick %d", tick)
+			view := []*pex.GossipRecord(v.(pex.EvtViewUpdated))
 			viewString := ""
 			for _, pr := range view{
-				viewString = fmt.Sprintf("%v:%v", viewString, pr.PeerID)
+				viewString = fmt.Sprintf("%v-%v", viewString, pr.PeerID)
 			}
-			name := fmt.Sprintf("view,peer=%v,view_ids=%v,tick=%v", h.ID(), viewString, tick)
-			env.R().RecordPoint(name, 0)  // The value is not used
+			name := fmt.Sprintf("view,peer=%v,records=%v,tick=%v", h.ID(), viewString, tick)
+			env.D().RecordPoint(name, 0)  // The value is not used
+			env.RecordMessage("Sent metric tick %d", tick)
+
 			tick += 1
 		case <-ctx.Done():
 			return ctx.Err()
@@ -31,7 +34,7 @@ func viewMetricsLoop(env *runtime.RunEnv, ctx context.Context, h host.Host, sub 
 	}
 }
 // Run tests for PeX.
-func Run(env *runtime.RunEnv, initCtx *run.InitContext) error {
+/* func Run(env *runtime.RunEnv, initCtx *run.InitContext) error {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
@@ -71,4 +74,4 @@ func Run(env *runtime.RunEnv, initCtx *run.InitContext) error {
 	// TODO:  actual test starts here
 
 	return nil
-}
+} */

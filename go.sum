@@ -219,6 +219,7 @@ github.com/golang/mock v1.4.1/go.mod h1:UOMv5ysSaYNkG+OFQykRIcU/QvvxJf3p21QfJ2Bt
 github.com/golang/mock v1.4.3/go.mod h1:UOMv5ysSaYNkG+OFQykRIcU/QvvxJf3p21QfJ2Bt3cw=
 github.com/golang/mock v1.4.4/go.mod h1:l3mdAwkq5BuhzHwde/uurv3sEJeZMXNpwsxVWU71h+4=
 github.com/golang/mock v1.5.0/go.mod h1:CWnOUgYIOo4TcNZ0wHX3YZCqsaM1I1Jvs6v3mP3KVu8=
+github.com/golang/mock v1.6.0 h1:ErTB+efbowRARo13NNdxyJji2egdxLGQhRaY+DUumQc=
 github.com/golang/mock v1.6.0/go.mod h1:p6yTPP+5HYm5mzsMV8JkE6ZKdX+/wYM6Hr+LicevLPs=
 github.com/golang/protobuf v1.2.0/go.mod h1:6lQm79b+lXiMfvg/cZm0SGofjICqVBUtrP5yJMmIC1U=
 github.com/golang/protobuf v1.3.0/go.mod h1:Qd/q+1AKNOZr9uGQzbzCmRO6sUih6GTPZv6a1/R87v0=
@@ -393,6 +394,7 @@ github.com/jessevdk/go-flags v0.0.0-20141203071132-1679536dcc89/go.mod h1:4FA24M
 github.com/jessevdk/go-flags v1.4.0/go.mod h1:4FA24M0QyGHXBuZZK/XkWh8h0e1EYbRYJSGM75WSRxI=
 github.com/jmespath/go-jmespath v0.0.0-20180206201540-c2b33e8439af/go.mod h1:Nht3zPeWKUH0NzdCt2Blrr5ys8VGpn0CEB0cQHVjt7k=
 github.com/jonboulle/clockwork v0.1.0/go.mod h1:Ii8DK3G1RaLaWxj9trq07+26W01tbo22gdxWY5EU2bo=
+github.com/jpillora/backoff v1.0.0 h1:uvFg412JmmHBHw7iwprIxkPMI+sGQ4kzOWsMeHnm2EA=
 github.com/jpillora/backoff v1.0.0/go.mod h1:J/6gKK9jxlEcS3zixgDgUAsiuZ7yrSoa/FX5e0EB2j4=
 github.com/jrick/logrotate v1.0.0/go.mod h1:LNinyqDIJnpAur+b8yyulnQw/wDuN1+BYKlTRt3OuAQ=
 github.com/json-iterator/go v1.1.6/go.mod h1:+SdeFBvtyEkXs7REEP0seUULqWtbJapLOCVDaaPEHmU=
@@ -632,8 +634,8 @@ github.com/lightstep/lightstep-tracer-go v0.18.1/go.mod h1:jlF1pusYV4pidLvZ+XD0U
 github.com/lthibault/go-libp2p-inproc-transport v0.0.1-alpha.7 h1:FEV9yoMKVwmXsL7rnEvMHxfcEpxK0hacNJtY0htQkOw=
 github.com/lthibault/go-libp2p-inproc-transport v0.0.1-alpha.7/go.mod h1:P3KGUdIgSaAe4h2rnXzoHSLRSWymqQru1cIMN+R7v7Y=
 github.com/lthibault/jitterbug/v2 v2.2.2/go.mod h1:evaHKX+60nFbFnEvGNPybQMJ5vXay9auziApDGo47Sw=
-github.com/lthibault/log v1.2.0 h1:RfiCPFnRFhqIl7A8T3YuoKU7US/ASGZgx/IZy6pRZuc=
-github.com/lthibault/log v1.2.0/go.mod h1:j254NVxJgJGQGevj/zS79WLQCVPoHW42ZFN/0yCqASo=
+github.com/lthibault/log v1.2.1 h1:REKIXtQiw9dyAmiiqYZkPitve81odUB0aEqakS+TmTk=
+github.com/lthibault/log v1.2.1/go.mod h1:j254NVxJgJGQGevj/zS79WLQCVPoHW42ZFN/0yCqASo=
 github.com/lthibault/treap v0.1.2/go.mod h1:lkAEtwwWT4AtrM6APG4Y2MktVKUoT6hHcJHe/gxF1ho=
 github.com/lthibault/util v0.0.10 h1:cZjDQzrjn3b2wclDQSd5Aq5BC8GcBh0aJubr2ZX+VJQ=
 github.com/lthibault/util v0.0.10/go.mod h1:cGZBEILcwYh+UkEdWKgP1vEOlayHa5dh2ay8yixCJQ0=
@@ -951,8 +953,8 @@ github.com/urfave/cli v1.22.1/go.mod h1:Gos4lmkARVdJ6EkW0WaNv/tZAAMe9V7XWyB60NtX
 github.com/urfave/cli/v2 v2.3.0/go.mod h1:LJmUH05zAU44vOAcrfzZQKsZbVcdbOG8rtL3/XcUArI=
 github.com/viant/assertly v0.4.8/go.mod h1:aGifi++jvCrUaklKEKT0BU95igDNaqkvz+49uaYMPRU=
 github.com/viant/toolbox v0.24.0/go.mod h1:OxMCG57V0PXuIP2HNQrtJf2CjqdmbrOx5EkMILuUhzM=
-github.com/wetware/casm v0.0.0-20210915062705-f5d4368b5bcb h1:hFTrE8cbj6E2LEh7D8SaT6aE0k+D4LsIeClDOTL1ZnA=
-github.com/wetware/casm v0.0.0-20210915062705-f5d4368b5bcb/go.mod h1:Sd6Q757Tox8gZnFcQRbBLaBbnhS9gSpWeeDRWGpK/zk=
+github.com/wetware/casm v0.0.0-20210917003411-76d2ac26f1b4 h1:8dFpepsdduaShmkE62COq8zX7Kos5WtAZrAaT7QyDW8=
+github.com/wetware/casm v0.0.0-20210917003411-76d2ac26f1b4/go.mod h1:mC6/8O+rFQz+kr1kpYuaXm3UseyQzG6PwmYcEgBrx/o=
 github.com/wetware/matrix v1.0.0-alpha.17 h1:QtAf4J1oKN1mE5OIxPwsyLbFz6dGyc7V+jz0+C5kbcY=
 github.com/wetware/matrix v1.0.0-alpha.17/go.mod h1:Amn22v5AokspzNpka0Y0HNHkBSDo0MUf+JxkxVcs6h0=
 github.com/whyrusleeping/go-keyspace v0.0.0-20160322163242-5b898ac5add1/go.mod h1:8UvriyWtv5Q5EOgjHaSseUEdkQfvwFv1I/In/O2M9gc=

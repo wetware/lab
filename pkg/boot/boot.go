@@ -21,23 +21,28 @@ type RedisDiscovery struct{
 	h host.Host
 	seq int64
 	tch chan *peer.AddrInfo
+	subscribed bool
 }
 type DiscoverInfo struct{
 }
 
 func New(env *runtime.RunEnv, client sync.Client, h host.Host, seq int64) (*RedisDiscovery, error) {
-	r := &RedisDiscovery{env, client, h, seq, make(chan *peer.AddrInfo)}
+	r := &RedisDiscovery{env, client, h, seq, make(chan *peer.AddrInfo), false}
 	return r, nil
 }
 
 func (r *RedisDiscovery) Advertise(ctx context.Context, ns string, opt ...discovery.Option) (ttl time.Duration, err error) {
 	// Subscribe to ring neighbors advertisements
-	n1, n2 := ringNeighbors(r.env, r.seq)
-	t1 := fmt.Sprintf("%v.%v.%v", ns, ringTopic, n1)
-	t2 := fmt.Sprintf("%v.%v.%v", ns, ringTopic, n2)
-	r.subscribe(t1)
-	r.subscribe(t2)
-	err = r.syncState(sync.State("subscribed"));
+	if !r.subscribed{
+		n1, n2 := ringNeighbors(r.env, r.seq)
+		t1 := fmt.Sprintf("%v.%v.%v", ns, ringTopic, n1)
+		t2 := fmt.Sprintf("%v.%v.%v", ns, ringTopic, n2)
+		r.subscribe(t1)
+		r.subscribe(t2)
+		err = r.syncState(sync.State("subscribed"));
+		r.subscribed = true
+	}
+	
 	// Advertise
 	topic := fmt.Sprintf("%v.%v.%v", ns, ringTopic, r.seq)
 	st := sync.NewTopic(topic, &peer.AddrInfo{})
@@ -56,6 +61,7 @@ func (r *RedisDiscovery) FindPeers(ctx context.Context, ns string, opt ...discov
 
 func (r *RedisDiscovery) subscribe(topic string) error{
 	st := sync.NewTopic(topic, &peer.AddrInfo{})
+	r.env.RecordMessage("Subscribed to %s", topic)
 	_, err := r.client.Subscribe(context.Background(), st, r.tch)
 	if err != nil {
 		panic(err)
