@@ -23,5 +23,5 @@ venv
 .ipynb*
 
 # Output files
-.csv
-.peers
+*.csv
+*.peers

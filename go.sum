@@ -958,6 +958,8 @@ github.com/wetware/casm v0.0.0-20210917003411-76d2ac26f1b4 h1:8dFpepsdduaShmkE62
 github.com/wetware/casm v0.0.0-20210917003411-76d2ac26f1b4/go.mod h1:mC6/8O+rFQz+kr1kpYuaXm3UseyQzG6PwmYcEgBrx/o=
 github.com/wetware/casm v0.0.0-20210917190611-b58475252b3d h1:5BHdGSro1rOo5enYDz928aS/TwcpLA32CQxJAnhwolw=
 github.com/wetware/casm v0.0.0-20210917190611-b58475252b3d/go.mod h1:mC6/8O+rFQz+kr1kpYuaXm3UseyQzG6PwmYcEgBrx/o=
+github.com/wetware/casm v0.0.0-20210918020944-2d4b9320c1da h1:7by5a/rxYSJiBXrxoNmeNMeIIe/5+2Al0ZsPTSx1OG0=
+github.com/wetware/casm v0.0.0-20210918020944-2d4b9320c1da/go.mod h1:O7GDQxBC/7jXpb34F84kZ00XeMwi4gf8EV7c7mgHg+s=
 github.com/wetware/matrix v1.0.0-alpha.17 h1:QtAf4J1oKN1mE5OIxPwsyLbFz6dGyc7V+jz0+C5kbcY=
 github.com/wetware/matrix v1.0.0-alpha.17/go.mod h1:Amn22v5AokspzNpka0Y0HNHkBSDo0MUf+JxkxVcs6h0=
 github.com/whyrusleeping/go-keyspace v0.0.0-20160322163242-5b898ac5add1/go.mod h1:8UvriyWtv5Q5EOgjHaSseUEdkQfvwFv1I/In/O2M9gc=

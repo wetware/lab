@@ -39,9 +39,9 @@ func (r *RedisDiscovery) Advertise(ctx context.Context, ns string, opt ...discov
 	// NOP: just need to publish one time the peerID on New()
 	r.mu.Lock()
 	defer r.mu.Unlock()
-	
+
 	if len(r.peers)==0{
-		tch := make(chan *peer.AddrInfo)
+		tch := make(chan *peer.AddrInfo, r.env.TestInstanceCount)
 		topic := fmt.Sprintf("%v.%v", ns, r.t.Name())
 		subscribe(r.client, tch, topic)
 		r.syncState(tsync.State("subscribed"))

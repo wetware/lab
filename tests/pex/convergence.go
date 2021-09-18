@@ -10,6 +10,7 @@ import (
 
 	"github.com/testground/sdk-go/run"
 	"github.com/testground/sdk-go/runtime"
+	"github.com/testground/sdk-go/sync"
 	"github.com/wetware/casm/pkg/pex"
 	"github.com/wetware/lab/pkg/boot"
 )
@@ -64,12 +65,12 @@ func RunConvergence(env *runtime.RunEnv, initCtx *run.InitContext) error {
 		if err != nil {
 			return err
 		}
-		env.RecordMessage("Sleeping %d...", i)
 		time.Sleep(tick)
-		env.RecordMessage("Awaken %d", i)
 	}
 	env.RecordMessage("Leaving loop")
-	
+	state := sync.State("Finished")
+	client.MustSignalEntry(context.Background(), state)
+	err = <-client.MustBarrier(context.Background(), state, env.TestInstanceCount).C
 
 	// TODO:  actual test starts here
 	// Test 1: How fast does PeX converge on a uniform distribution of records?

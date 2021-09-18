@@ -7,7 +7,7 @@ require (
 	github.com/libp2p/go-libp2p-core v0.9.0
 	github.com/lthibault/log v1.2.1
 	github.com/testground/sdk-go v0.2.7
-	github.com/wetware/casm v0.0.0-20210917190611-b58475252b3d
+	github.com/wetware/casm v0.0.0-20210918020944-2d4b9320c1da
 )
 
 require (
