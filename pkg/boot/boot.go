@@ -3,7 +3,6 @@ package boot
 import (
 	"context"
 	"sync"
-	"sync/atomic"
 	"time"
 
 	"github.com/libp2p/go-libp2p-core/discovery"
@@ -20,7 +19,8 @@ type RedisDiscovery struct {
 	once sync.Once
 	Topo Topology
 
-	as atomic.Value
+	mu sync.RWMutex
+	as boot.StaticAddrs
 }
 
 func (r *RedisDiscovery) Advertise(ctx context.Context, ns string, opt ...discovery.Option) (_ time.Duration, err error) {
@@ -29,11 +29,11 @@ func (r *RedisDiscovery) Advertise(ctx context.Context, ns string, opt ...discov
 		return
 	}
 
-	if r.as.Load() == nil {
-		var as boot.StaticAddrs
-		if as, err = r.syncRedis(ctx, ns); err == nil {
-			r.as.CompareAndSwap(nil, as) // concurrent call may have already stored results
-		}
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	if r.as == nil {
+		r.as, err = r.syncRedis(ctx, ns)
 	}
 
 	return opts.Ttl, err
@@ -47,12 +47,10 @@ func (r *RedisDiscovery) FindPeers(ctx context.Context, ns string, opt ...discov
 		}
 	})
 
-	var as boot.StaticAddrs
-	if v := r.as.Load(); v != nil {
-		as = v.(boot.StaticAddrs)
-	}
+	r.mu.RLock()
+	defer r.mu.RUnlock()
 
-	return r.Topo.GetNeighbors(as).FindPeers(ctx, ns, opt...)
+	return r.Topo.GetNeighbors(r.as).FindPeers(ctx, ns, opt...)
 }
 
 func (r *RedisDiscovery) syncRedis(ctx context.Context, ns string) (as boot.StaticAddrs, err error) {
