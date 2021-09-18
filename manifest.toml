@@ -5,7 +5,7 @@ runner = "local:exec"
 
 [builders."docker:go"]
 enabled = true
-# go_version = "1.17"
+go_version = "1.17"
 # module_path = "github.com/wetware/lab"
 exec_pkg = "."
 go_proxy_mode = "remote"
