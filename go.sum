@@ -950,8 +950,6 @@ github.com/urfave/cli v1.22.1/go.mod h1:Gos4lmkARVdJ6EkW0WaNv/tZAAMe9V7XWyB60NtX
 github.com/urfave/cli/v2 v2.3.0/go.mod h1:LJmUH05zAU44vOAcrfzZQKsZbVcdbOG8rtL3/XcUArI=
 github.com/viant/assertly v0.4.8/go.mod h1:aGifi++jvCrUaklKEKT0BU95igDNaqkvz+49uaYMPRU=
 github.com/viant/toolbox v0.24.0/go.mod h1:OxMCG57V0PXuIP2HNQrtJf2CjqdmbrOx5EkMILuUhzM=
-github.com/wetware/casm v0.0.0-20210917225522-b61bab3f266f h1:HqEVqPAkbTM8AzaKrEnyTUNid4tFx8fccwByHnVITsQ=
-github.com/wetware/casm v0.0.0-20210917225522-b61bab3f266f/go.mod h1:O7GDQxBC/7jXpb34F84kZ00XeMwi4gf8EV7c7mgHg+s=
 github.com/wetware/casm v0.0.0-20210917233722-25c135a38925 h1:IlBUE5wmQBKGufuJsEfOkzmfNknJHjJaX2KaOC8xac8=
 github.com/wetware/casm v0.0.0-20210917233722-25c135a38925/go.mod h1:O7GDQxBC/7jXpb34F84kZ00XeMwi4gf8EV7c7mgHg+s=
 github.com/wetware/matrix v1.0.0-alpha.17 h1:QtAf4J1oKN1mE5OIxPwsyLbFz6dGyc7V+jz0+C5kbcY=

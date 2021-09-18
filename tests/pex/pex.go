@@ -6,24 +6,24 @@ import (
 
 	"github.com/libp2p/go-libp2p-core/event"
 	"github.com/libp2p/go-libp2p-core/host"
-	"github.com/wetware/casm/pkg/pex"
 	"github.com/testground/sdk-go/runtime"
+	"github.com/wetware/casm/pkg/pex"
 )
 
 const ns = "casm.lab.pex"
 
-func viewMetricsLoop(env *runtime.RunEnv, ctx context.Context, h host.Host, sub event.Subscription) error {
+func viewMetricsLoop(ctx context.Context, env *runtime.RunEnv, h host.Host, sub event.Subscription) error {
 	tick := 1
 	for {
 		select {
 		case v := <-sub.Out():
 			view := []*pex.GossipRecord(v.(pex.EvtViewUpdated))
 			viewString := ""
-			for _, pr := range view{
+			for _, pr := range view {
 				viewString = fmt.Sprintf("%v-%v", viewString, pr.PeerID)
 			}
 			name := fmt.Sprintf("view,peer=%v,records=%v,tick=%v", h.ID(), viewString, tick)
-			env.D().RecordPoint(name, 0)  // The value is not used
+			env.D().RecordPoint(name, 0) // The value is not used
 
 			tick += 1
 		case <-ctx.Done():
@@ -31,6 +31,7 @@ func viewMetricsLoop(env *runtime.RunEnv, ctx context.Context, h host.Host, sub 
 		}
 	}
 }
+
 // Run tests for PeX.
 /* func Run(env *runtime.RunEnv, initCtx *run.InitContext) error {
 	ctx, cancel := context.WithCancel(context.Background())
