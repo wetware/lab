@@ -4,29 +4,39 @@ import (
 	"sort"
 
 	"github.com/libp2p/go-libp2p-core/peer"
-	pexboot "github.com/wetware/casm/pkg/boot"
+	"github.com/wetware/casm/pkg/boot"
 )
 
-type Topology interface{
-	Name() string
-	GetNeighbors(p peer.ID, boot pexboot.StaticAddrs) pexboot.StaticAddrs
+type Topology interface {
+	GetNeighbors(boot boot.StaticAddrs) boot.StaticAddrs
 }
 
-type Ring struct{}
+type Ring struct{ ID peer.ID }
 
-func (r *Ring) Name() string{
-	return "ring"
-}
-
-func (r *Ring) GetNeighbors(p peer.ID, boot pexboot.StaticAddrs) pexboot.StaticAddrs{
-	sort.Sort(boot)
-	for boot[0].ID != p {
-		boot = rotateLeft(boot)
+func (r Ring) GetNeighbors(as boot.StaticAddrs) boot.StaticAddrs {
+	if len(as) < 2 {
+		return as
 	}
-	
-	return pexboot.StaticAddrs{boot[1], boot[len(boot)-1]}
+
+	sort.Sort(as)
+
+	// Defensively range over the values instead of a 'while' loop,
+	// in case the target ID is not contained in the slice.  This
+	// should never happen, but you never know...
+	for range as {
+		if as[0].ID == r.ID {
+			break
+		}
+
+		as = rotateLeft(as)
+	}
+
+	// use filter instead of indexing in case len(as) == 0
+	return as.Filter(func(info peer.AddrInfo) bool {
+		return info.ID != r.ID
+	})
 }
 
-func rotateLeft(boot pexboot.StaticAddrs) pexboot.StaticAddrs{
-	return append(boot[1:], boot[0])
+func rotateLeft(as boot.StaticAddrs) boot.StaticAddrs {
+	return append(as[1:], as[0]) // always len(as) > 1
 }
