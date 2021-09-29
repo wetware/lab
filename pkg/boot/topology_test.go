@@ -14,7 +14,7 @@ func TestRing(t *testing.T) {
 	as := newStaticAddrs(8)
 	topo := boot.Ring{ID: as[0].ID}
 	top := topo.GetNeighbors(as)
-	require.Len(t, top, 7)
+	require.Len(t, top, 2)
 	require.NotContains(t, top, topo.ID,
 		"should NOT have local host in results")
 
