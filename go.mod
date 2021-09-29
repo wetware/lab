@@ -8,7 +8,8 @@ require (
 	github.com/lthibault/log v1.2.1
 	github.com/stretchr/testify v1.7.0
 	github.com/testground/sdk-go v0.2.7
-	github.com/wetware/casm v0.0.0-20210918020944-2d4b9320c1da
+	github.com/wetware/casm v0.0.0-20210922070737-714bd50333df
+	go.uber.org/zap v1.19.1
 )
 
 require (
@@ -110,7 +111,6 @@ require (
 	go.uber.org/dig v1.12.0 // indirect
 	go.uber.org/fx v1.14.2 // indirect
 	go.uber.org/multierr v1.7.0 // indirect
-	go.uber.org/zap v1.19.1 // indirect
 	golang.org/x/crypto v0.0.0-20210817164053-32db794688a5 // indirect
 	golang.org/x/net v0.0.0-20210908191846-a5e095526f91 // indirect
 	golang.org/x/sync v0.0.0-20210220032951-036812b2e83c // indirect

@@ -13,8 +13,9 @@ import (
 )
 
 type RedisDiscovery struct {
-	C     tsync.Client
-	Local *peer.AddrInfo
+	ClusterSize int
+	C           tsync.Client
+	Local       *peer.AddrInfo
 
 	once sync.Once
 	Topo Topology
@@ -54,8 +55,11 @@ func (r *RedisDiscovery) FindPeers(ctx context.Context, ns string, opt ...discov
 }
 
 func (r *RedisDiscovery) syncRedis(ctx context.Context, ns string) (as boot.StaticAddrs, err error) {
+	ctx, cancel := context.WithCancel(ctx)
+	defer cancel()
+
 	var (
-		ch  = make(chan *peer.AddrInfo, 1)
+		ch  = make(chan *peer.AddrInfo, r.ClusterSize)
 		sub *tsync.Subscription
 	)
 
@@ -71,7 +75,9 @@ func (r *RedisDiscovery) syncRedis(ctx context.Context, ns string) (as boot.Stat
 		case err = <-sub.Done():
 			return
 		case info := <-ch:
-			as = append(as, *info)
+			if as = append(as, *info); len(as) == r.ClusterSize {
+				return
+			}
 		}
 	}
 }

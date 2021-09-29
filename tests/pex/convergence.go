@@ -5,13 +5,13 @@ import (
 	"time"
 
 	zaputil "github.com/lthibault/log/util/zap"
+	"go.uber.org/zap"
 
 	"github.com/libp2p/go-libp2p"
 	"github.com/libp2p/go-libp2p-core/host"
 
 	"github.com/testground/sdk-go/run"
 	"github.com/testground/sdk-go/runtime"
-	"github.com/testground/sdk-go/sync"
 	"github.com/wetware/casm/pkg/pex"
 	"github.com/wetware/lab/pkg/boot"
 )
@@ -35,11 +35,12 @@ func RunConvergence(env *runtime.RunEnv, initCtx *run.InitContext) error {
 	if err != nil {
 		return err
 	}
-	go viewMetricsLoop(env, ctx, h, sub)
+	go viewMetricsLoop(ctx, env, h, sub)
 
 	d := &boot.RedisDiscovery{
-		C:     initCtx.SyncClient,
-		Local: host.InfoFromHost(h),
+		ClusterSize: env.TestInstanceCount,
+		C:           initCtx.SyncClient,
+		Local:       host.InfoFromHost(h),
 	}
 
 	px, err := pex.New(ctx, h,
@@ -55,20 +56,19 @@ func RunConvergence(env *runtime.RunEnv, initCtx *run.InitContext) error {
 	// a loop with the interval specified by the TTL return value.
 	env.RecordMessage("Entering loop")
 	for i := 0; i < convTickAmount; i++ {
-		env.RecordMessage("Advertising %d...", i)
-		_, err = px.Advertise(ctx, ns)
-		env.RecordMessage("Advertised %d", i)
+		ttl, err := px.Advertise(ctx, ns)
 		if err != nil {
 			return err
 		}
-		time.Sleep(tick)
+
+		env.SLogger().
+			With(zap.Duration("ttl", ttl)).
+			Debug("call to advertise succeeded")
 	}
-	env.RecordMessage("Leaving loop")
 
 	// TODO:  actual test starts here
 	// Test 1: How fast does PeX converge on a uniform distribution of records?
 
 	env.RecordSuccess()
-
 	return nil
 }
