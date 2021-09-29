@@ -21,7 +21,7 @@ type RedisDiscovery struct {
 	Topo Topology
 
 	mu sync.RWMutex
-	as boot.StaticAddrs
+	sa boot.StaticAddrs
 }
 
 func (r *RedisDiscovery) Advertise(ctx context.Context, ns string, opt ...discovery.Option) (_ time.Duration, err error) {
@@ -33,8 +33,8 @@ func (r *RedisDiscovery) Advertise(ctx context.Context, ns string, opt ...discov
 	r.mu.Lock()
 	defer r.mu.Unlock()
 
-	if r.as == nil {
-		r.as, err = r.syncRedis(ctx, ns)
+	if r.sa == nil {
+		r.sa, err = r.syncRedis(ctx, ns)
 	}
 
 	return opts.Ttl, err
@@ -51,7 +51,7 @@ func (r *RedisDiscovery) FindPeers(ctx context.Context, ns string, opt ...discov
 	r.mu.RLock()
 	defer r.mu.RUnlock()
 
-	return r.Topo.GetNeighbors(r.as).FindPeers(ctx, ns, opt...)
+	return r.Topo.GetNeighbors(r.sa).FindPeers(ctx, ns, opt...)
 }
 
 func (r *RedisDiscovery) syncRedis(ctx context.Context, ns string) (as boot.StaticAddrs, err error) {

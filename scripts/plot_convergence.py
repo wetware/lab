@@ -19,6 +19,7 @@ def plot_histogram(run, ticks):
     def prepare_animation(bar_container):
         def animate(frame_number):
             # simulate new data coming in
+            plt.title(f"Tick {frame_number+1}")
             data = df.loc[df["tick"] == frame_number + 1]["references"].values
             for count, rect in zip(data, bar_container.patches):
                 rect.set_height(count)
@@ -30,9 +31,12 @@ def plot_histogram(run, ticks):
     _, _, bar_container = ax.hist(data, instances, lw=1,
                                   ec="yellow", fc="green", alpha=0.5)
     ax.set_ylim(top=instances)  # set safe limit to ensure that all data is visible.
+    title = ax.text(0.5, 0.85, "", bbox={'facecolor': 'w', 'alpha': 0.5, 'pad': 5},
+                    transform=ax.transAxes, ha="center")
 
-    animation.FuncAnimation(fig, prepare_animation(bar_container), ticks,
-                                  repeat=False, blit=True)
+
+    an = animation.FuncAnimation(fig, prepare_animation(bar_container), ticks,
+                                  repeat=False, blit=False)
     plt.show()
 
 

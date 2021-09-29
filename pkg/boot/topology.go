@@ -34,7 +34,7 @@ func (r Ring) GetNeighbors(as boot.StaticAddrs) boot.StaticAddrs {
 	// use filter instead of indexing in case len(as) == 0
 	return as.Filter(func(info peer.AddrInfo) bool {
 		return info.ID != r.ID
-	})
+	})[:2]
 }
 
 func rotateLeft(as boot.StaticAddrs) boot.StaticAddrs {

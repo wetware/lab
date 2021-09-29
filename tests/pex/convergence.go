@@ -14,6 +14,7 @@ import (
 	"github.com/testground/sdk-go/runtime"
 	"github.com/wetware/casm/pkg/pex"
 	"github.com/wetware/lab/pkg/boot"
+	tsync "github.com/testground/sdk-go/sync"
 )
 
 // Run tests for PeX.
@@ -42,6 +43,7 @@ func RunConvergence(env *runtime.RunEnv, initCtx *run.InitContext) error {
 		C:           initCtx.SyncClient,
 		Local:       host.InfoFromHost(h),
 	}
+	
 
 	px, err := pex.New(ctx, h,
 		pex.WithDiscovery(d),
@@ -51,10 +53,10 @@ func RunConvergence(env *runtime.RunEnv, initCtx *run.InitContext) error {
 		return err
 	}
 
+
 	// Advertise triggers a gossip round.  When a 'PeerExchange' instance
 	// is provided to a 'PubSub' instance, this method will be called in
 	// a loop with the interval specified by the TTL return value.
-	env.RecordMessage("Entering loop")
 	for i := 0; i < convTickAmount; i++ {
 		ttl, err := px.Advertise(ctx, ns)
 		if err != nil {
@@ -65,7 +67,8 @@ func RunConvergence(env *runtime.RunEnv, initCtx *run.InitContext) error {
 			With(zap.Duration("ttl", ttl)).
 			Debug("call to advertise succeeded")
 	}
-
+	
+	initCtx.SyncClient.MustSignalAndWait(ctx, tsync.State("finished"), env.TestInstanceCount)
 	// TODO:  actual test starts here
 	// Test 1: How fast does PeX converge on a uniform distribution of records?
 
