@@ -53,9 +53,15 @@ def preprocess_run(run, ticks, folder):
         histogram_data = peers.copy()
         # Extract peer views at tick 'tick'
         results = client.query(f'''SELECT * FROM "diagnostics.casm-pex-convergence.view.point" WHERE run='{run}' ''')
-        for point in results.get_points(tags={"tick": str(tick)}):
+        found = set()
+        for point in reversed(list(results.get_points(tags={"tick": str(tick)}))):
             if not point["records"]:
                 continue
+            if point["peer"] in found:
+                continue
+            else:
+                found.add(point["peer"])
+
             for record in point["records"].split("-")[1:]:
                 histogram_data[peers_seq[record]] += 1
         for key, value in histogram_data.items():
