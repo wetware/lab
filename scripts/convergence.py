@@ -17,6 +17,9 @@ def cli1():
 def cli2():
     pass
 
+@click.group()
+def cli3():
+    pass
 
 @cli1.command()
 @click.argument("run")
@@ -125,8 +128,11 @@ def plot_histogram(run, folder, ticks, is_preprocess):
     plt.show()
 
 
-@cli2.command()
+@cli3.command()
 @click.argument("run")
+@click.option('-c', '--convergence-threshold',
+              help="Convergence threshold.",
+              default=0.95, type=float)
 @click.option('-t', '--ticks',
               help="Amount of ticks to process.",
               default=100, type=int)
@@ -136,22 +142,29 @@ def plot_histogram(run, folder, ticks, is_preprocess):
 @click.option('-p', '--is-preprocess',
               help="Flag to indicate you also want to pre-process.",
               is_flag=True)
-def convergence_tick(run, ticks, folder, is_preprocess):
-    convergence_tick(run, folder, ticks, is_preprocess)
+def convergence_tick(run, convergence_threshold, ticks, folder, is_preprocess):
+    calculate_convergence_tick(run, convergence_threshold, ticks, folder, is_preprocess)
 
 
-def convergence_tick(run, folder, ticks, is_preprocess):
+def calculate_convergence_tick(run, convergence_threshold, ticks, folder, is_preprocess):
     if is_preprocess:
         preprocess_run(run, ticks, folder)
     df = pd.read_csv(f"{path.join(folder, f'{run}.csv')}")
     instances = df["peerNum"].nunique()
-    data = df.loc[df["tick"] == 1]["references"].values
+    for tick in range(1, ticks):
+        data = df.loc[df["tick"] == tick]["references"].values / instances
+        if (data<=convergence_threshold).all():
+            print(f"Convergence holds at tick {tick}")
+            return
+
+    print(f"Convergence does not holds afater {ticks} ticks")
+
 
     # TODO
 
 
 
-cli = click.CommandCollection(sources=[cli1, cli2])
+cli = click.CommandCollection(sources=[cli1, cli2, cli3])
 
 if __name__ == '__main__':
     cli()
