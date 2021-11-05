@@ -75,9 +75,14 @@ func (r *RedisDiscovery) syncRedis(ctx context.Context, ns string) (as boot.Stat
 		case err = <-sub.Done():
 			return
 		case info := <-ch:
+			if (info == nil){
+				println("info is nil")
+				continue
+			}
 			if as = append(as, *info); len(as) == r.ClusterSize {
 				return
 			}
 		}
 	}
+
 }

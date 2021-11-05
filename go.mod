@@ -8,7 +8,7 @@ require (
 	github.com/lthibault/log v1.2.1
 	github.com/stretchr/testify v1.7.0
 	github.com/testground/sdk-go v0.2.7
-	github.com/wetware/casm v0.0.0-20211103163938-73ffd96e0825
+	github.com/wetware/casm v0.0.0-20211105092148-4d79bfa15357
 	go.uber.org/zap v1.19.1
 )
 

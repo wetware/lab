@@ -13,5 +13,6 @@ import (
 func main() {
 	run.InvokeMap(map[string]interface{}{
 		"pex-convergence": pex.RunConvergence,
+		"dns-test": pex.RunDnsTest,
 	})
 }

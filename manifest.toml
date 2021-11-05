@@ -32,6 +32,13 @@ instances = { min = 2, max = 64, default = 2 }
     convTickAmount = {type="int", default = 100}
 
 [[testcases]]
+name= "dns-test"
+instances = { min = 2, max = 1000, default = 2 }
+    [testcases.params]
+    tick = {type="int", default = 100}
+    convTickAmount = {type="int", default = 100}
+
+[[testcases]]
 name= "pex-resiliency"
 instances = { min = 2, max = 64, default = 2 }
     [testcases.params]

@@ -21,7 +21,7 @@ def cli2():
 @cli1.command()
 @click.argument("run")
 @click.option('-t', '--ticks',
-              help="Ampunt of ticks to process.",
+              help="Amount of ticks to process.",
               default=100, type=int)
 @click.option('-f', '--folder',
               help="Output folder to store the file to.",
@@ -81,7 +81,7 @@ def preprocess_run(run, ticks, folder):
 @cli2.command()
 @click.argument("run")
 @click.option('-t', '--ticks',
-              help="Ampunt of ticks to process.",
+              help="Amount of ticks to process.",
               default=100, type=int)
 @click.option('-f', '--folder',
               help="Output folder to store the file to.",
@@ -106,7 +106,7 @@ def plot_histogram(run, folder, ticks, is_preprocess):
         def animate(frame_number):
             # simulate new data coming in
             plt.title(f"Tick {frame_number + 1}")
-            data = df.loc[df["tick"] == frame_number + 1]["references"].values
+            data = df.loc[df["tick"] == frame_number + 1]["references"].values / instances
             for count, rect in zip(data, bar_container.patches):
                 rect.set_height(count)
             return bar_container.patches
@@ -121,8 +121,34 @@ def plot_histogram(run, folder, ticks, is_preprocess):
                     transform=ax.transAxes, ha="center")
 
     an = animation.FuncAnimation(fig, prepare_animation(bar_container), ticks,
-                                 repeat=False, blit=False)
+                                 repeat=True, blit=False)
     plt.show()
+
+
+@cli2.command()
+@click.argument("run")
+@click.option('-t', '--ticks',
+              help="Amount of ticks to process.",
+              default=100, type=int)
+@click.option('-f', '--folder',
+              help="Output folder to store the file to.",
+              default="out", type=str)
+@click.option('-p', '--is-preprocess',
+              help="Flag to indicate you also want to pre-process.",
+              is_flag=True)
+def convergence_tick(run, ticks, folder, is_preprocess):
+    convergence_tick(run, folder, ticks, is_preprocess)
+
+
+def convergence_tick(run, folder, ticks, is_preprocess):
+    if is_preprocess:
+        preprocess_run(run, ticks, folder)
+    df = pd.read_csv(f"{path.join(folder, f'{run}.csv')}")
+    instances = df["peerNum"].nunique()
+    data = df.loc[df["tick"] == 1]["references"].values
+
+    # TODO
+
 
 
 cli = click.CommandCollection(sources=[cli1, cli2])
