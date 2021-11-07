@@ -17,9 +17,11 @@ def cli1():
 def cli2():
     pass
 
+
 @click.group()
 def cli3():
     pass
+
 
 @cli1.command()
 @click.argument("run")
@@ -119,7 +121,7 @@ def plot_histogram(run, folder, ticks, is_preprocess):
     fig, ax = plt.subplots()
     _, _, bar_container = ax.hist(data, instances, lw=1,
                                   ec="yellow", fc="green", alpha=0.5)
-    ax.set_ylim(top=instances)  # set safe limit to ensure that all data is visible.
+    ax.set_ylim(top=1)  # set safe limit to ensure that all data is visible.
     title = ax.text(0.5, 0.85, "", bbox={'facecolor': 'w', 'alpha': 0.5, 'pad': 5},
                     transform=ax.transAxes, ha="center")
 
@@ -153,15 +155,13 @@ def calculate_convergence_tick(run, convergence_threshold, ticks, folder, is_pre
     instances = df["peerNum"].nunique()
     for tick in range(1, ticks):
         data = df.loc[df["tick"] == tick]["references"].values / instances
-        if (data<=convergence_threshold).all():
-            print(f"Convergence holds at tick {tick}")
+        if (convergence_threshold <= data).all():
+            print(f"Convergence holds at tick {tick} with {instances} nodes")
             return
 
-    print(f"Convergence does not holds afater {ticks} ticks")
-
+    print(f"Convergence does not holds after {ticks} ticks with {instances} nodes")
 
     # TODO
-
 
 
 cli = click.CommandCollection(sources=[cli1, cli2, cli3])
