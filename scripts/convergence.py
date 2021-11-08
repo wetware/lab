@@ -1,4 +1,8 @@
 import csv
+import re
+import shlex
+import subprocess
+import time
 from os import path
 
 import click
@@ -20,6 +24,11 @@ def cli2():
 
 @click.group()
 def cli3():
+    pass
+
+
+@click.group()
+def cli4():
     pass
 
 
@@ -91,21 +100,21 @@ def preprocess_run(run, ticks, folder):
 @click.option('-f', '--folder',
               help="Output folder to store the file to.",
               default="out", type=str)
+@click.option('-i', '--interval',
+              help="Speed at which ticks are plotted.", default=500)
 @click.option('-p', '--is-preprocess',
               help="Flag to indicate you also want to pre-process.",
               is_flag=True)
-def plot(run, ticks, folder, is_preprocess):
-    plot_histogram(run, folder, ticks, is_preprocess)
+def plot(run, ticks, folder, interval, is_preprocess):
+    plot_histogram(run, ticks, folder, interval, is_preprocess)
 
 
-def plot_histogram(run, folder, ticks, is_preprocess):
+def plot_histogram(run, ticks, folder, interval, is_preprocess):
     if is_preprocess:
         preprocess_run(run, ticks, folder)
     df = pd.read_csv(f"{path.join(folder, f'{run}.csv')}")
     instances = df["peerNum"].nunique()
-    data = df.loc[df["tick"] == 1]["references"].values
-
-    # histogram our data with numpy
+    data = df.loc[df["tick"] == 1]["references"].values / instances
 
     def prepare_animation(bar_container):
         def animate(frame_number):
@@ -122,19 +131,22 @@ def plot_histogram(run, folder, ticks, is_preprocess):
     _, _, bar_container = ax.hist(data, instances, lw=1,
                                   ec="yellow", fc="green", alpha=0.5)
     ax.set_ylim(top=1)  # set safe limit to ensure that all data is visible.
+    for count, rect in zip(data, bar_container.patches):
+        rect.set_height(count)
     title = ax.text(0.5, 0.85, "", bbox={'facecolor': 'w', 'alpha': 0.5, 'pad': 5},
                     transform=ax.transAxes, ha="center")
 
     an = animation.FuncAnimation(fig, prepare_animation(bar_container), ticks,
-                                 repeat=True, blit=False)
+                                 repeat=True, blit=False, interval=interval)
     plt.show()
 
 
 @cli3.command()
 @click.argument("run")
+@click.option("-vs", "--view-size", type=int, default=32)
 @click.option('-c', '--convergence-threshold',
               help="Convergence threshold.",
-              default=0.95, type=float)
+              default=[0.95], type=float, multiple=True)
 @click.option('-t', '--ticks',
               help="Amount of ticks to process.",
               default=100, type=int)
@@ -144,27 +156,102 @@ def plot_histogram(run, folder, ticks, is_preprocess):
 @click.option('-p', '--is-preprocess',
               help="Flag to indicate you also want to pre-process.",
               is_flag=True)
-def convergence_tick(run, convergence_threshold, ticks, folder, is_preprocess):
-    calculate_convergence_tick(run, convergence_threshold, ticks, folder, is_preprocess)
+@click.option('-o', '--output',
+              help="Output file to store the result to.",
+              type=str)
+def convergence_tick(run, view_size, convergence_threshold,
+                     ticks, folder, is_preprocess, output):
+    calculate_convergence_tick(run, view_size, convergence_threshold,
+                               ticks, folder, is_preprocess, output)
 
 
-def calculate_convergence_tick(run, convergence_threshold, ticks, folder, is_preprocess):
+def calculate_convergence_tick(run, view_size, convergence_threshold,
+                               ticks, folder, is_preprocess, output):
     if is_preprocess:
         preprocess_run(run, ticks, folder)
     df = pd.read_csv(f"{path.join(folder, f'{run}.csv')}")
     instances = df["peerNum"].nunique()
-    for tick in range(1, ticks):
-        data = df.loc[df["tick"] == tick]["references"].values / instances
-        if (convergence_threshold <= data).all():
-            print(f"Convergence holds at tick {tick} with {instances} nodes")
-            return
+    neighbors = min(instances-1, view_size)
 
-    print(f"Convergence does not holds after {ticks} ticks with {instances} nodes")
+    output = output if output else run
+    if folder:
+        output = f"{folder}/{output}"
+    output = f"{output}.conv"
+    f = open(output, "a+")
+    writer = csv.writer(f)
+    with open(output, "r") as read_file:
+        if not read_file.read():
+            writer.writerow(["nodes", "threshold", "convergence"])
 
-    # TODO
+    for c in convergence_threshold:
+        for tick in range(1, ticks):
+            data = df.loc[df["tick"] == tick]["references"].values
+            if (neighbors*c <= data).all():
+                writer.writerow([instances, c, tick])
+                print(f"{c} convergence with {instances} nodes holds at tick {tick} with {instances} nodes")
+                break
+    f.close()
 
 
-cli = click.CommandCollection(sources=[cli1, cli2, cli3])
+@cli4.command()
+@click.argument("min_node", type=int)
+@click.argument("max_node", type=int)
+@click.option("-vs", "--view-size", type=int, default=32)
+@click.option('-c', '--convergence-threshold',
+              help="Convergence threshold.",
+              default=[0.95], type=float, multiple=True)
+@click.option('-t', '--ticks',
+              help="Amount of ticks to process.",
+              default=100, type=int)
+@click.option('-f', '--folder',
+              help="Output folder to store the file to.",
+              default="out", type=str)
+@click.option('-p', '--is-preprocess',
+              help="Flag to indicate you also want to pre-process.",
+              is_flag=True)
+def converge(min_node, max_node, view_size, convergence_threshold, ticks, folder, is_preprocess):
+    run_converge(min_node, max_node, view_size, convergence_threshold, ticks, folder, is_preprocess)
+
+
+def run_converge(min_node, max_node, view_size, convergence_threshold, ticks, folder, is_preprocess):
+    command = f'testground daemon'
+    with subprocess.Popen(shlex.split(command), text=True, stdout=subprocess.PIPE) as testground:
+        time.sleep(2)
+        convergence_procs = []
+        for nodes in range(min_node, max_node):
+            command = f'testground run single --plan=casm --testcase="pex-convergence" ' \
+                      f'--runner=local:docker --builder=docker:go --instances={nodes} ' \
+                      f'--tp convTickAmount={ticks}'
+            print(f"Running convergence with {nodes}/{max_node} nodes...")
+            proc = subprocess.run(shlex.split(command), text=True, stdout=subprocess.PIPE)
+            run_id = re.search("run is queued with ID: (.+)\\n", proc.stdout).group(1)
+            line = testground.stdout.readline()
+            while line:
+                print(line)
+                if re.search(f"Tick {ticks}/", line):
+                    break
+                if re.search("ERROR", line):
+                    return
+                line = testground.stdout.readline()
+
+            print(f"Run convergence with {nodes}/{max_node} nodes.")
+            command = f"python3 convergence.py preprocess {run_id} -t {ticks}"
+            proc = subprocess.Popen(shlex.split(command), text=True, stdout=subprocess.PIPE)
+            convergence_procs.append((run_id, proc))
+
+        print(f"Waiting to finish convergence tick calculation...")
+        for run_id, proc in convergence_procs:
+            proc.wait()
+            command = f"python3 convergence.py convergence-tick {run_id} " \
+                      f"-vs {view_size} -t {ticks} " \
+                      f"-o {convergence_procs[0][0]}"
+            for c in convergence_threshold:
+                command += f" -c {c}"
+            subprocess.run(shlex.split(command))
+        print(f"Finished convergence tick calculation. Saved at {convergence_procs[0][0]}.csv")
+
+
+cli = click.CommandCollection(sources=[cli1, cli2, cli3, cli4])
 
 if __name__ == '__main__':
     cli()
