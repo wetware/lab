@@ -10,6 +10,7 @@ import matplotlib.animation as animation
 import matplotlib.pyplot as plt
 import pandas as pd
 from influxdb import InfluxDBClient
+from matplotlib.ticker import MaxNLocator
 
 
 @click.group()
@@ -29,6 +30,11 @@ def cli3():
 
 @click.group()
 def cli4():
+    pass
+
+
+@click.group()
+def cli5():
     pass
 
 
@@ -105,8 +111,26 @@ def preprocess_run(run, ticks, folder):
 @click.option('-p', '--is-preprocess',
               help="Flag to indicate you also want to pre-process.",
               is_flag=True)
-def plot(run, ticks, folder, interval, is_preprocess):
-    plot_histogram(run, ticks, folder, interval, is_preprocess)
+@click.option('-pc', '--plot-convergence',
+              help="Flag to indicate to plot convergence where "
+                   "X is nodes amount and Y tick at which converges.",
+              is_flag=True)
+def plot(run, ticks, folder, interval, is_preprocess, plot_convergence):
+    if plot_convergence:
+        plot_line(run, ticks, folder, interval, is_preprocess)
+    else:
+        plot_histogram(run, ticks, folder, interval, is_preprocess)
+
+
+def plot_line(run, ticks, folder, interval, is_preprocess):
+    df = pd.read_csv(f"{path.join(folder, f'{run}.conv')}")
+    thresholds = df["threshold"].unique()
+    for t in thresholds:
+        ax = df[df["threshold"] == t].groupby("nodes", as_index=False).mean().plot(x="nodes", y="tick")
+        ax.yaxis.set_major_locator(MaxNLocator(integer=True))
+        ax.xaxis.set_major_locator(MaxNLocator(integer=True))
+        plt.title(f"Convergence threshold: {t}")
+        plt.show()
 
 
 def plot_histogram(run, ticks, folder, interval, is_preprocess):
@@ -171,7 +195,7 @@ def calculate_convergence_tick(run, view_size, convergence_threshold,
         preprocess_run(run, ticks, folder)
     df = pd.read_csv(f"{path.join(folder, f'{run}.csv')}")
     instances = df["peerNum"].nunique()
-    neighbors = min(instances-1, view_size)
+    neighbors = min(instances - 1, view_size)
 
     output = output if output else run
     if folder:
@@ -181,12 +205,12 @@ def calculate_convergence_tick(run, view_size, convergence_threshold,
     writer = csv.writer(f)
     with open(output, "r") as read_file:
         if not read_file.read():
-            writer.writerow(["nodes", "threshold", "convergence"])
+            writer.writerow(["nodes", "threshold", "tick"])
 
     for c in convergence_threshold:
         for tick in range(1, ticks):
             data = df.loc[df["tick"] == tick]["references"].values
-            if (neighbors*c <= data).all():
+            if (neighbors * c <= data).all():
                 writer.writerow([instances, c, tick])
                 print(f"{c} convergence with {instances} nodes holds at tick {tick} with {instances} nodes")
                 break
@@ -196,10 +220,14 @@ def calculate_convergence_tick(run, view_size, convergence_threshold,
 @cli4.command()
 @click.argument("min_node", type=int)
 @click.argument("max_node", type=int)
+@click.option("-s", "--step", type=int, default=1)
 @click.option("-vs", "--view-size", type=int, default=32)
 @click.option('-c', '--convergence-threshold',
               help="Convergence threshold.",
               default=[0.95], type=float, multiple=True)
+@click.option('-r', '--repetitions',
+              help="Amount of times the convergence simulations is performed for every node amount.",
+              default=1, type=int)
 @click.option('-t', '--ticks',
               help="Amount of ticks to process.",
               default=100, type=int)
@@ -209,37 +237,42 @@ def calculate_convergence_tick(run, view_size, convergence_threshold,
 @click.option('-p', '--is-preprocess',
               help="Flag to indicate you also want to pre-process.",
               is_flag=True)
-def converge(min_node, max_node, view_size, convergence_threshold, ticks, folder, is_preprocess):
-    run_converge(min_node, max_node, view_size, convergence_threshold, ticks, folder, is_preprocess)
+def converge(min_node, max_node, step, view_size,
+             convergence_threshold, repetitions, ticks, folder, is_preprocess):
+    run_converge(min_node, max_node, step, view_size, convergence_threshold, repetitions, ticks, folder, is_preprocess)
 
 
-def run_converge(min_node, max_node, view_size, convergence_threshold, ticks, folder, is_preprocess):
+def run_converge(min_node, max_node, step, view_size, convergence_threshold, repetitions, ticks, folder, is_preprocess):
     command = f'testground daemon'
     with subprocess.Popen(shlex.split(command), text=True, stdout=subprocess.PIPE) as testground:
         time.sleep(2)
         convergence_procs = []
-        for nodes in range(min_node, max_node):
-            command = f'testground run single --plan=casm --testcase="pex-convergence" ' \
+        for nodes in range(min_node, max_node+1, step):
+            for rep in range(repetitions):
+                command = f'testground run single --plan=casm --testcase="pex-convergence" ' \
                       f'--runner=local:docker --builder=docker:go --instances={nodes} ' \
                       f'--tp convTickAmount={ticks}'
-            print(f"Running convergence with {nodes}/{max_node} nodes...")
-            proc = subprocess.run(shlex.split(command), text=True, stdout=subprocess.PIPE)
-            run_id = re.search("run is queued with ID: (.+)\\n", proc.stdout).group(1)
-            line = testground.stdout.readline()
-            while line:
-                print(line)
-                if re.search(f"Tick {ticks}/", line):
-                    break
-                if re.search("ERROR", line):
-                    return
+                print(f"Running convergence with {nodes}/{max_node} nodes repetition {rep+1}/{repetitions}...")
+                proc = subprocess.run(shlex.split(command), text=True, stdout=subprocess.PIPE)
+                if not re.search("run is queued with ID: (.+)\\n", proc.stdout):
+                    print(proc.stdout)
+                run_id = re.search("run is queued with ID: (.+)\\n", proc.stdout).group(1)
                 line = testground.stdout.readline()
+                while line:
+                    if re.search("Tick [0-9]+/[0-9]+", line):
+                        print(line)
+                    if re.search(f"Tick {ticks}/", line):
+                        break
+                    if re.search("ERROR", line):
+                        return
+                    line = testground.stdout.readline()
 
-            print(f"Run convergence with {nodes}/{max_node} nodes.")
-            command = f"python3 convergence.py preprocess {run_id} -t {ticks}"
-            proc = subprocess.Popen(shlex.split(command), text=True, stdout=subprocess.PIPE)
-            convergence_procs.append((run_id, proc))
+                print(f"Run convergence with {nodes}/{max_node} nodes.")
+                command = f"python3 convergence.py preprocess {run_id} -t {ticks}"
+                proc = subprocess.Popen(shlex.split(command), text=True, stdout=subprocess.PIPE)
+                convergence_procs.append((run_id, proc))
 
-        print(f"Waiting to finish convergence tick calculation...")
+        print(f"Calculating convergence ticks...")
         for run_id, proc in convergence_procs:
             proc.wait()
             command = f"python3 convergence.py convergence-tick {run_id} " \
@@ -248,7 +281,9 @@ def run_converge(min_node, max_node, view_size, convergence_threshold, ticks, fo
             for c in convergence_threshold:
                 command += f" -c {c}"
             subprocess.run(shlex.split(command))
-        print(f"Finished convergence tick calculation. Saved at {convergence_procs[0][0]}.csv")
+        print(f"Finished convergence tick calculation. "
+              f"Saved at {convergence_procs[0][0]}.csv")
+        return
 
 
 cli = click.CommandCollection(sources=[cli1, cli2, cli3, cli4])
