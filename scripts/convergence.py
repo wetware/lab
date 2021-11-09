@@ -45,7 +45,7 @@ def cli5():
               default=100, type=int)
 @click.option('-f', '--folder',
               help="Output folder to store the file to.",
-              default="out", type=str)
+              type=str)
 def preprocess(run, ticks, folder):
     preprocess_run(run, ticks, folder)
 
@@ -105,7 +105,7 @@ def preprocess_run(run, ticks, folder):
               default=100, type=int)
 @click.option('-f', '--folder',
               help="Output folder to store the file to.",
-              default="out", type=str)
+              type=str)
 @click.option('-i', '--interval',
               help="Speed at which ticks are plotted.", default=500)
 @click.option('-p', '--is-preprocess',
@@ -123,7 +123,8 @@ def plot(run, ticks, folder, interval, is_preprocess, plot_convergence):
 
 
 def plot_line(run, ticks, folder, interval, is_preprocess):
-    df = pd.read_csv(f"{path.join(folder, f'{run}.conv')}")
+    input_file = f"{path.join(folder, f'{run}.conv')}" if folder else f"{run}.conv"
+    df = pd.read_csv(input_file)
     thresholds = df["threshold"].unique()
     for t in thresholds:
         ax = df[df["threshold"] == t].groupby("nodes", as_index=False).mean().plot(x="nodes", y="tick")
@@ -176,7 +177,7 @@ def plot_histogram(run, ticks, folder, interval, is_preprocess):
               default=100, type=int)
 @click.option('-f', '--folder',
               help="Output folder to store the file to.",
-              default="out", type=str)
+              type=str)
 @click.option('-p', '--is-preprocess',
               help="Flag to indicate you also want to pre-process.",
               is_flag=True)
@@ -193,7 +194,8 @@ def calculate_convergence_tick(run, view_size, convergence_threshold,
                                ticks, folder, is_preprocess, output):
     if is_preprocess:
         preprocess_run(run, ticks, folder)
-    df = pd.read_csv(f"{path.join(folder, f'{run}.csv')}")
+    input_file = f"{path.join(folder, f'{run}.csv')}" if folder else f"{run}.csv"
+    df = pd.read_csv(input_file)
     instances = df["peerNum"].nunique()
     neighbors = min(instances - 1, view_size)
 
@@ -233,7 +235,7 @@ def calculate_convergence_tick(run, view_size, convergence_threshold,
               default=100, type=int)
 @click.option('-f', '--folder',
               help="Output folder to store the file to.",
-              default="out", type=str)
+              type=str)
 @click.option('-p', '--is-preprocess',
               help="Flag to indicate you also want to pre-process.",
               is_flag=True)
@@ -267,8 +269,10 @@ def run_converge(min_node, max_node, step, view_size, convergence_threshold, rep
                         return
                     line = testground.stdout.readline()
 
-                print(f"Run convergence with {nodes}/{max_node} nodes.")
+                print(f"Run convergence with {nodes}/{max_node} nodes repetition {rep+1}/{repetitions}.")
                 command = f"python3 convergence.py preprocess {run_id} -t {ticks}"
+                if folder:
+                    command += f" -f {folder}"
                 proc = subprocess.Popen(shlex.split(command), text=True, stdout=subprocess.PIPE)
                 convergence_procs.append((run_id, proc))
 
@@ -278,12 +282,14 @@ def run_converge(min_node, max_node, step, view_size, convergence_threshold, rep
             command = f"python3 convergence.py convergence-tick {run_id} " \
                       f"-vs {view_size} -t {ticks} " \
                       f"-o {convergence_procs[0][0]}"
+            if folder:
+                command += f" -f {folder}"
             for c in convergence_threshold:
                 command += f" -c {c}"
             subprocess.run(shlex.split(command))
         print(f"Finished convergence tick calculation. "
-              f"Saved at {convergence_procs[0][0]}.csv")
-        return
+              f"Saved at {convergence_procs[0][0]}.conv")
+        testground.kill()
 
 
 cli = click.CommandCollection(sources=[cli1, cli2, cli3, cli4])
