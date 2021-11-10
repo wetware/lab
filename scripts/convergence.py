@@ -83,8 +83,9 @@ def preprocess_run(run, ticks, folder):
             else:
                 found.add(point["peer"])
 
-            for record in point["records"].split("-")[1:]:
-                histogram_data[peers_seq[record]] += 1
+            for record in point["records"].split("-"):
+                if record:
+                    histogram_data[peers_seq[record]] += 1
         for key, value in histogram_data.items():
             with open(output, "a") as f:
                 writer = csv.writer(f)
@@ -251,12 +252,12 @@ def run_converge(min_node, max_node, step, view_size, convergence_threshold, rep
     with subprocess.Popen(shlex.split(command), text=True, stdout=subprocess.PIPE) as testground:
         time.sleep(2)
         convergence_procs = []
-        for nodes in range(min_node, max_node+1, step):
+        for nodes in range(min_node, max_node + 1, step):
             for rep in range(repetitions):
                 command = f'testground run single --plan=casm --testcase="pex-convergence" ' \
-                      f'--runner=local:docker --builder=docker:go --instances={nodes} ' \
-                      f'--tp convTickAmount={ticks}'
-                print(f"Running convergence with {nodes}/{max_node} nodes repetition {rep+1}/{repetitions}...")
+                          f'--runner=local:docker --builder=docker:go --instances={nodes} ' \
+                          f'--tp convTickAmount={ticks}'
+                print(f"Running convergence with {nodes}/{max_node} nodes repetition {rep + 1}/{repetitions}...")
                 proc = subprocess.run(shlex.split(command), text=True, stdout=subprocess.PIPE)
                 if not re.search("run is queued with ID: (.+)\\n", proc.stdout):
                     print(proc.stdout)
@@ -271,7 +272,7 @@ def run_converge(min_node, max_node, step, view_size, convergence_threshold, rep
                         print(line)
                     line = testground.stdout.readline()
 
-                print(f"Run convergence with {nodes}/{max_node} nodes repetition {rep+1}/{repetitions}.")
+                print(f"Run convergence with {nodes}/{max_node} nodes repetition {rep + 1}/{repetitions}.")
                 command = f"python3 convergence.py preprocess {run_id} -t {ticks}"
                 if folder:
                     command += f" -f {folder}"

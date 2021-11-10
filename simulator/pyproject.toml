@@ -7,6 +7,7 @@ authors = ["aratz <aratz.m.lasa@gmail.com>"]
 [tool.poetry.dependencies]
 python = "^3.8"
 click = "^8.0.3"
+influxdb = "^5.3.1"
 
 [tool.poetry.dev-dependencies]
 

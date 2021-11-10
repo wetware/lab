@@ -4,7 +4,8 @@ from enum import IntEnum, auto
 from typing import List
 
 import click
-
+from influxdb import InfluxDBClient
+from datetime import datetime
 
 class Policy(IntEnum):
     Random = auto()
@@ -86,6 +87,7 @@ class Cluster:
         self.propagation = propagation
         self.merge = merge
         self.nodes = []
+        self.tick = 0
 
     def initialize_nodes(self, nodes_amount: int):
         for i in range(nodes_amount):
@@ -119,6 +121,7 @@ class Cluster:
                     self._push(neighbor, node)
                     self._pull(node, neighbor)
                     self._pull(neighbor, node)
+        self.tick += 1
 
     def _to_node(self, record: Record):
         return self.nodes[record.index]
@@ -161,6 +164,26 @@ class Cluster:
         return _filter
 
 
+def send_metrics(cluster: Cluster):
+    client = InfluxDBClient(host="localhost", port=8086)
+    client.switch_database("testground")
+    json_body = []
+    for node in cluster.nodes:
+        point = {
+            "measurement": "diagnostics.casm-pex-convergence.view.point",
+            "tags":{
+                "peer": str(node.index),
+                "records": "-".join(map(lambda r: str(r), node.neighbors)),
+                "tick": str(cluster.tick)
+            },
+            "time": datetime.utcnow().strftime('%Y-%m-%dT%H:%M:%SZ'),
+            "fields": {
+                "value": 0
+            }
+        }
+    client.write_points(json_body)
+
+
 @click.command()
 @click.argument("n", type=int)
 @click.option("-t", "--ticks", type=int, default=30)
@@ -180,7 +203,8 @@ def simulate(n: int, ticks: int, fanout: int, view_size: int,
     cluster.print_network()
     for i in range(ticks):
         cluster.simulate_tick(i)
-        cluster.print_topology()
+        send_metrics(cluster)
+
 
 if __name__ == '__main__':
     simulate()
