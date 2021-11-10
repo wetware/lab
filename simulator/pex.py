@@ -1,11 +1,17 @@
 import copy
 import random
+import shlex
+import subprocess
 from enum import IntEnum, auto
 from typing import List
 
 import click
 from influxdb import InfluxDBClient
 from datetime import datetime
+import secrets
+
+
+
 
 class Policy(IntEnum):
     Random = auto()
@@ -164,24 +170,30 @@ class Cluster:
         return _filter
 
 
-def send_metrics(cluster: Cluster):
+def send_metrics(cluster: Cluster, run_id: str):
     client = InfluxDBClient(host="localhost", port=8086)
     client.switch_database("testground")
     json_body = []
     for node in cluster.nodes:
         point = {
             "measurement": "diagnostics.casm-pex-convergence.view.point",
-            "tags":{
+            "tags": {
                 "peer": str(node.index),
-                "records": "-".join(map(lambda r: str(r), node.neighbors)),
-                "tick": str(cluster.tick)
+                "records": "-".join(map(lambda r: str(r.index), node.neighbors)),
+                "tick": str(cluster.tick),
+                "run": run_id
             },
             "time": datetime.utcnow().strftime('%Y-%m-%dT%H:%M:%SZ'),
             "fields": {
                 "value": 0
             }
         }
+        json_body.append(point)
     client.write_points(json_body)
+
+
+def init_metrics():
+    subprocess.run(shlex.split("docker start testground-influxdb"))
 
 
 @click.command()
@@ -200,10 +212,14 @@ def simulate(n: int, ticks: int, fanout: int, view_size: int,
                       Policy.from_string(merge))
     cluster.initialize_nodes(n)
     cluster.initialize_topology(Topology.RING)
-    cluster.print_network()
+    init_metrics()
+    run_id = secrets.token_urlsafe(10)
+    print(f"Run {run_id} started")
     for i in range(ticks):
+        print(f"Tick {i+1}/{ticks}...")
         cluster.simulate_tick(i)
-        send_metrics(cluster)
+        send_metrics(cluster, run_id)
+    print(f"Run {run_id} finished")
 
 
 if __name__ == '__main__':
