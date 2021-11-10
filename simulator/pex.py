@@ -199,12 +199,13 @@ def init_metrics():
 @click.command()
 @click.argument("n", type=int)
 @click.option("-t", "--ticks", type=int, default=30)
+@click.option("-r", "--repetitions", type=int, default=1)
 @click.option("-f", "--fanout", type=int, default=1)
 @click.option("-v", "--view-size", type=int, default=32)
 @click.option("-s", "--selection", type=str, default="rand")
 @click.option("-p", "--propagation", type=str, default="pushpull")
 @click.option("-m", "--merge", type=str, default="head")
-def simulate(n: int, ticks: int, fanout: int, view_size: int,
+def simulate(n: int, ticks: int, repetitions: int, fanout: int, view_size: int,
              selection: str, propagation: str, merge: str):
     cluster = Cluster(fanout, view_size,
                       Policy.from_string(selection),
@@ -213,13 +214,14 @@ def simulate(n: int, ticks: int, fanout: int, view_size: int,
     cluster.initialize_nodes(n)
     cluster.initialize_topology(Topology.RING)
     init_metrics()
-    run_id = secrets.token_urlsafe(10)
-    print(f"Run {run_id} started")
-    for i in range(ticks):
-        print(f"Tick {i+1}/{ticks}...")
-        cluster.simulate_tick(i)
-        send_metrics(cluster, run_id)
-    print(f"Run {run_id} finished")
+    for i in range(repetitions):
+        run_id = secrets.token_urlsafe(10)
+        print(f"Run {run_id} ({i+1}/{repetitions}) started")
+        for j in range(ticks):
+            print(f"Tick {j+1}/{ticks}...")
+            cluster.simulate_tick(j)
+            send_metrics(cluster, run_id)
+        print(f"Run {run_id} ({i+1}/{repetitions}) finished")
 
 
 if __name__ == '__main__':
