@@ -62,30 +62,32 @@ def preprocess_run(run, ticks, folder):
 
     with open(output, "w") as f:
         writer = csv.writer(f)
-
-        peers = {}
-        peers_seq = {}
-        for i, point in enumerate(client.query(
-                f'''SHOW TAG VALUES from "diagnostics.casm-pex-convergence.view.point" WITH key=peer WHERE run='{run}' ''').get_points()):
-            peers[i] = 0
-            peers_seq[point["value"]] = i
         writer.writerow(["peerNum", "references", "tick"])
-        for tick in range(1, ticks + 1):
-            histogram_data = peers.copy()
-            # Extract peer views at tick 'tick'
-            results = client.query(f'''SELECT * FROM "diagnostics.casm-pex-convergence.view.point" WHERE run='{run}' ''')
-            found = set()
-            for point in reversed(list(results.get_points(tags={"tick": str(tick)}))):
-                if not point["records"]:
-                    continue
-                if point["peer"] in found:
-                    continue
-                else:
-                    found.add(point["peer"])
 
-                for record in point["records"].split("-")[1:]:
-                    histogram_data[peers_seq[record]] += 1
-            for key, value in histogram_data.items():
+    peers = {}
+    peers_seq = {}
+    for i, point in enumerate(client.query(
+            f'''SHOW TAG VALUES from "diagnostics.casm-pex-convergence.view.point" WITH key=peer WHERE run='{run}' ''').get_points()):
+        peers[i] = 0
+        peers_seq[point["value"]] = i
+    for tick in range(1, ticks + 1):
+        histogram_data = peers.copy()
+        # Extract peer views at tick 'tick'
+        results = client.query(f'''SELECT * FROM "diagnostics.casm-pex-convergence.view.point" WHERE run='{run}' ''')
+        found = set()
+        for point in reversed(list(results.get_points(tags={"tick": str(tick)}))):
+            if not point["records"]:
+                continue
+            if point["peer"] in found:
+                continue
+            else:
+                found.add(point["peer"])
+
+            for record in point["records"].split("-")[1:]:
+                histogram_data[peers_seq[record]] += 1
+        for key, value in histogram_data.items():
+            with open(output, "a") as f:
+                writer = csv.writer(f)
                 writer.writerow([key, value, tick])
 
     # Write peer->id mapping
@@ -202,19 +204,21 @@ def calculate_convergence_tick(run, view_size, convergence_threshold,
     if folder:
         output = f"{folder}/{output}"
     output = f"{output}.conv"
-    with open(output, "a+") as f:
+    with open(output, "a") as f:
         writer = csv.writer(f)
         with open(output, "r") as read_file:
             if not read_file.read():
                 writer.writerow(["nodes", "threshold", "tick"])
 
-        for c in convergence_threshold:
-            for tick in range(1, ticks):
-                data = df.loc[df["tick"] == tick]["references"].values
-                if (neighbors * c <= data).all():
+    for c in convergence_threshold:
+        for tick in range(1, ticks):
+            data = df.loc[df["tick"] == tick]["references"].values
+            if (neighbors * c <= data).all():
+                with open(output, "a") as f:
+                    writer = csv.writer(f)
                     writer.writerow([instances, c, tick])
-                    print(f"{c} convergence with {instances} nodes holds at tick {tick} with {instances} nodes")
-                    break
+                print(f"{c} convergence with {instances} nodes holds at tick {tick} with {instances} nodes")
+                break
 
 
 @cli4.command()
@@ -271,7 +275,7 @@ def run_converge(min_node, max_node, step, view_size, convergence_threshold, rep
                 command = f"python3 convergence.py preprocess {run_id} -t {ticks}"
                 if folder:
                     command += f" -f {folder}"
-                proc = subprocess.Popen(shlex.split(command), text=True, stdout=subprocess.PIPE)
+                proc = subprocess.Popen(shlex.split(command), stdout=subprocess.DEVNULL)
                 convergence_procs.append((run_id, proc))
 
         print(f"Calculating convergence ticks...")
