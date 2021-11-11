@@ -57,7 +57,6 @@ func RunConvergence(env *runtime.RunEnv, initCtx *run.InitContext) error {
 		return err
 	}
 
-
 	// Advertise triggers a gossip round.  When a 'PeerExchange' instance
 	// is provided to a 'PubSub' instance, this method will be called in
 	// a loop with the interval specified by the TTL return value.

@@ -1,5 +1,8 @@
+import os
+import random
 import re
 import shlex
+import string
 import subprocess
 import time
 
@@ -23,12 +26,17 @@ import click
 @click.option('-f', '--folder',
               help="Output folder to store the file to.",
               type=str)
+@click.option('--plot', help="Plot simulation convergence graph.",
+              is_flag=True)
 def emulate(min_node, max_node, step, view_size,
-             convergence_threshold, repetitions, ticks, folder):
+             convergence_threshold, repetitions, ticks, folder, plot):
     command = f'testground daemon'
+    emulation_id = "".join(random.choices(string.ascii_lowercase + string.digits, k=16))
+    output_file = os.path.join(folder, f"{emulation_id}-pex.em") if folder else f"{emulation_id}-pex.em"
+    with open(output_file, "w") as file:
+        file.write(f"{min_node} {max_node} {step}\n")
     with subprocess.Popen(shlex.split(command), text=True, stdout=subprocess.PIPE) as testground:
         time.sleep(3)  # TODO: read process output to know when is ready
-        convergence_procs = []
         for nodes in range(min_node, max_node + 1, step):
             for rep in range(repetitions):
                 command = f'testground run single --plan=casm --testcase="pex-convergence" ' \
@@ -50,26 +58,16 @@ def emulate(min_node, max_node, step, view_size,
                     line = testground.stdout.readline()
 
                 print(f"Run convergence with {nodes}/{max_node} nodes repetition {rep + 1}/{repetitions}.")
-                command = f"python3 convergence.py preprocess {run_id} -t {ticks}"
-                if folder:
-                    command += f" -f {folder}"
-                proc = subprocess.Popen(shlex.split(command), stdout=subprocess.DEVNULL)
-                convergence_procs.append((run_id, proc))
+                with open(output_file, "a") as file:
+                    file.write(f"{os.path.join(folder, run_id)}\n")
 
-        print(f"Calculating convergence ticks...")
-        for run_id, proc in convergence_procs:
-            proc.wait()
-            command = f"python3 convergence.py convergence-tick {run_id} " \
-                      f"-vs {view_size} -t {ticks} " \
-                      f"-o {convergence_procs[0][0]}"
-            if folder:
-                command += f" -f {folder}"
-            for c in convergence_threshold:
-                command += f" -c {c}"
-            subprocess.run(shlex.split(command))
-        print(f"Finished convergence tick calculation. "
-              f"Saved at {convergence_procs[0][0]}.conv")
+        print(f"Results stored at {output_file}")
+        if plot:
+            subprocess.run(shlex.split(f"python3 convergence.py converge {output_file}"))
+            subprocess.run(
+                shlex.split(f"python3 convergence.py plot {'.'.join(output_file.split('.')[:-1]) + '.conv'}"))
         testground.kill()
 
 
-
+if __name__ == "__main__":
+    emulate()
