@@ -1,7 +1,5 @@
 import csv
 import os.path
-import random
-import string
 
 import click
 import matplotlib.animation as animation
@@ -21,17 +19,7 @@ def cli2():
     pass
 
 
-@click.group()
-def cli3():
-    pass
-
-
-@click.group()
-def cli4():
-    pass
-
-
-@cli2.command()
+@cli1.command()
 @click.argument("input_file")
 @click.option('-t', '--ticks',
               help="Amount of ticks to process.",
@@ -57,7 +45,7 @@ def plot_line(input_file, convergence_threshold):
         plt.show()
 
 
-@cli3.command()
+@cli2.command()
 @click.argument("input_file")
 @click.option("-n", "--nodes", default=[3], type=int, multiple=True)
 @click.option('-t', '--ticks',
@@ -213,7 +201,7 @@ def preprocess(run, ticks, folder):
                 writer.writerow([node, references, tick])
 
 
-cli = click.CommandCollection(sources=[cli1, cli2, cli3, cli4])
+cli = click.CommandCollection(sources=[cli1, cli2])
 
 if __name__ == '__main__':
     cli()
