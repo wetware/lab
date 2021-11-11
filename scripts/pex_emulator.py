@@ -14,9 +14,6 @@ import click
 @click.argument("max_node", type=int)
 @click.option("-s", "--step", type=int, default=1)
 @click.option("-vs", "--view-size", type=int, default=32)
-@click.option('-c', '--convergence-threshold',
-              help="Convergence threshold.",
-              default=[0.95], type=float, multiple=True)
 @click.option('-r', '--repetitions',
               help="Amount of times the convergence simulations is performed for every node amount.",
               default=1, type=int)
@@ -29,12 +26,12 @@ import click
 @click.option('--plot', help="Plot simulation convergence graph.",
               is_flag=True)
 def emulate(min_node, max_node, step, view_size,
-             convergence_threshold, repetitions, ticks, folder, plot):
+             repetitions, ticks, folder, plot):
     command = f'testground daemon'
     emulation_id = "".join(random.choices(string.ascii_lowercase + string.digits, k=16))
     output_file = os.path.join(folder, f"{emulation_id}-pex.em") if folder else f"{emulation_id}-pex.em"
     with open(output_file, "w") as file:
-        file.write(f"{min_node} {max_node} {step}\n")
+        file.write(f"{min_node} {max_node} {repetitions} {step}\n")
     with subprocess.Popen(shlex.split(command), text=True, stdout=subprocess.PIPE) as testground:
         time.sleep(3)  # TODO: read process output to know when is ready
         for nodes in range(min_node, max_node + 1, step):
@@ -62,11 +59,9 @@ def emulate(min_node, max_node, step, view_size,
                     file.write(f"{os.path.join(folder, run_id)}\n")
 
         print(f"Results stored at {output_file}")
-        if plot:
-            subprocess.run(shlex.split(f"python3 convergence.py converge {output_file}"))
-            subprocess.run(
-                shlex.split(f"python3 convergence.py plot {'.'.join(output_file.split('.')[:-1]) + '.conv'}"))
         testground.kill()
+    if plot:
+        subprocess.run(shlex.split(f"python3 convergence.py plot {output_file}"))
 
 
 if __name__ == "__main__":

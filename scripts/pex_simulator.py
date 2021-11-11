@@ -186,7 +186,7 @@ def send_metrics(cluster: Cluster, run_id: str):
             },
             "time": datetime.utcnow().strftime('%Y-%m-%dT%H:%M:%SZ'),
             "fields": {
-                "value": 0
+                "value": 0.0
             }
         }
         json_body.append(point)
@@ -217,8 +217,8 @@ def simulate(ticks: int, repetitions: int, step: int, fanout: int, min_nodes: in
              merge: str, folder: str, plot: bool):
     simulation_id = "".join(random.choices(string.ascii_lowercase + string.digits, k=16))
     output_file = os.path.join(folder, f"{simulation_id}-pex.sim") if folder else f"{simulation_id}-pex.sim"
-    with open(output_file, "w") as file:
-        file.write(f"{min_nodes} {max_nodes} {step}\n")
+    with open(output_file, "a") as file:
+        file.write(f"{min_nodes} {max_nodes} {repetitions} {step}\n")
     init_metrics()
     for n in range(min_nodes, max_nodes + 1, step):
         for i in range(repetitions):
@@ -233,7 +233,7 @@ def simulate(ticks: int, repetitions: int, step: int, fanout: int, min_nodes: in
                                             ascii_lowercase + string.digits, k=16))
             print(f"{n} - Run {run_id} ({i + 1}/{repetitions}) started")
             for j in range(ticks):
-                print(f"Tick {j + 1}/{ticks}...")
+                print(f"{n}({i+1}/{repetitions}) - Tick {j + 1}/{ticks}...")
                 cluster.simulate_tick(j)
                 send_metrics(cluster, run_id)
             print(f"{n} - Run {run_id} ({i + 1}/{repetitions}) finished")
@@ -243,8 +243,7 @@ def simulate(ticks: int, repetitions: int, step: int, fanout: int, min_nodes: in
     print(f"Results stored at {output_file}")
 
     if plot:
-        subprocess.run(shlex.split(f"python3 convergence.py converge {output_file}"))
-        subprocess.run(shlex.split(f"python3 convergence.py plot {'.'.join(output_file.split('.')[:-1]) + '.conv'}"))
+        subprocess.run(shlex.split(f"python3 convergence.py plot {output_file}"))
 
 
 if __name__ == '__main__':
