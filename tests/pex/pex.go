@@ -23,7 +23,7 @@ func viewMetricsLoop(ctx context.Context, env *runtime.RunEnv, h host.Host, sub 
 			for _, pr := range view {
 				viewString = fmt.Sprintf("%v-%v", viewString, pr.PeerID)
 			}
-			name := fmt.Sprintf("view,peer=%v,records=%v,tick=%v", h.ID(), viewString, metricTick)
+			name := fmt.Sprintf("view,node=%v,records=%v,tick=%v", h.ID(), viewString, metricTick)
 			env.D().RecordPoint(name, 0) // The value is not used
 		case <-ctx.Done():
 			return ctx.Err()

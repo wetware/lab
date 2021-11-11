@@ -21,8 +21,11 @@ cmd/scratch/**
 .idea
 venv
 .ipynb*
+__pycache__/
 
 # Output files
+*.sim
+*.em
 *.csv
-*.peers
+*.nodes
 *.conv

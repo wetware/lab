@@ -1,4 +1,5 @@
 import copy
+import os.path
 import random
 import shlex
 import string
@@ -9,6 +10,8 @@ from typing import List
 
 import click
 from influxdb import InfluxDBClient
+
+import convergence
 
 
 class Policy(IntEnum):
@@ -176,7 +179,7 @@ def send_metrics(cluster: Cluster, run_id: str):
         point = {
             "measurement": "diagnostics.casm-pex-convergence.view.point",
             "tags": {
-                "peer": str(node.index),
+                "node": str(node.index),
                 "records": "-".join(map(lambda r: str(r.index), node.neighbors)),
                 "tick": str(cluster.tick),
                 "run": run_id
@@ -197,34 +200,51 @@ def init_metrics():
 @click.command()
 @click.option("-t", "--ticks", type=int, default=30)
 @click.option("-r", "--repetitions", type=int, default=1)
-@click.option("-st", "--step", type=int, default=1)
+@click.option("-s", "--step", type=int, default=1)
 @click.option("-min", "--min-nodes", type=int, default=3)
 @click.option("-max", "--max-nodes", type=int, default=3)
 @click.option("-f", "--fanout", type=int, default=1)
 @click.option("-v", "--view-size", type=int, default=32)
-@click.option("-s", "--selection", type=str, default="rand")
-@click.option("-p", "--propagation", type=str, default="pushpull")
-@click.option("-m", "--merge", type=str, default="head")
-@click.option("-c", "--converge", is_flag=True)
+@click.option("-sp", "--selection", type=str, default="rand")
+@click.option("-pp", "--propagation", type=str, default="pushpull")
+@click.option("-mp", "--merge", type=str, default="head")
+@click.option('-f', '--folder', help="Output folder to store the file to.",
+              type=str)
+@click.option('--plot', help="Plot simulation convergence graph.",
+              is_flag=True)
 def simulate(ticks: int, repetitions: int, step: int, fanout: int, min_nodes: int,
-             max_nodes: int, view_size: int,
-             selection: str, propagation: str, merge: str, converge: bool):
+             max_nodes: int, view_size: int, selection: str, propagation: str,
+             merge: str, folder: str, plot: bool):
+    simulation_id = "".join(random.choices(string.ascii_lowercase + string.digits, k=16))
+    output_file = os.path.join(folder, f"{simulation_id}-pex.sim") if folder else f"{simulation_id}-pex.sim"
+    with open(output_file, "w") as file:
+        file.write(f"{min_nodes} {max_nodes} {step}\n")
+    init_metrics()
     for n in range(min_nodes, max_nodes + 1, step):
-        cluster = Cluster(fanout, view_size,
-                          Policy.from_string(selection),
-                          Policy.from_string(propagation),
-                          Policy.from_string(merge))
-        cluster.initialize_nodes(n)
-        cluster.initialize_topology(Topology.RING)
-        init_metrics()
         for i in range(repetitions):
-            run_id = "".join(random.choices(string.ascii_lowercase + string.digits, k=16))
+            cluster = Cluster(fanout, view_size,
+                              Policy.from_string(selection),
+                              Policy.from_string(propagation),
+                              Policy.from_string(merge))
+            cluster.initialize_nodes(n)
+            cluster.initialize_topology(Topology.RING)
+
+            run_id = "".join(random.choices(string.
+                                            ascii_lowercase + string.digits, k=16))
             print(f"{n} - Run {run_id} ({i + 1}/{repetitions}) started")
             for j in range(ticks):
                 print(f"Tick {j + 1}/{ticks}...")
                 cluster.simulate_tick(j)
                 send_metrics(cluster, run_id)
             print(f"{n} - Run {run_id} ({i + 1}/{repetitions}) finished")
+
+            with open(output_file, "a") as file:
+                file.write(f"{os.path.join(folder, run_id)}\n")
+    print(f"Results stored at {output_file}")
+
+    if plot:
+        subprocess.run(shlex.split(f"python3 convergence.py converge {output_file}"))
+        subprocess.run(shlex.split(f"python3 convergence.py plot {'.'.join(output_file.split('.')[:-1]) + '.conv'}"))
 
 
 if __name__ == '__main__':
