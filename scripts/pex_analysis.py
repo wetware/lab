@@ -28,30 +28,36 @@ def cli3():
 @click.option("-pth", is_flag=True)
 @click.option("-cc", is_flag=True)
 @click.option("-mtx", is_flag=True)
-def plot(run: str, tick: List[int], dd: bool, pth: bool, cc: bool, mtx: bool):
+@click.option("-all", is_flag=True)
+def plot(run: str, tick: List[int], dd: bool, pth: bool, cc: bool, mtx: bool, all:bool):
     for t in tick:
         graph = network(run, t)
-        if dd:
+        if dd or all:
             degrees = [graph.degree(n) for n in graph.nodes()]
             plt.hist(degrees)
             plt.title(f"N={graph.number_of_nodes()}, Tick={t} - Degree distribution")
             plt.show()
-        if cc:
+        if cc or all:
             coefficients = [cc for cc in nx.clustering(graph).values()]
             plt.hist(coefficients)
             plt.title(f"N={graph.number_of_nodes()}, Tick={t} - Clustering coefficient distribution")
             plt.show()
-        if pth:
+        if pth or all:
             avg_shortest_paths = [mean(lengths.values()) for scr, lengths in nx.all_pairs_shortest_path_length(graph)]
             plt.hist(avg_shortest_paths)
             plt.title(f"N={graph.number_of_nodes()}, Tick={t} - Average shortest path length distribution")
             plt.show()
-        if mtx:
+        if mtx or all:
             matrix = nx.to_numpy_matrix(graph)
             plt.matshow(matrix, cmap=plt.cm.Blues)
             plt.title(f"N={graph.number_of_nodes()}, Tick={t} - Adjacency matrix")
             plt.show()
 
+@cli1.command()
+@click.argument("run", type=str)
+@click.option("-t", "--tick", type=int, multiple=True, default=[1, 100])
+def calculate(run:str, tick: List[int]):
+    pass  # TODO
 
 
 def network(run: str, tick: int) -> nx.DiGraph:

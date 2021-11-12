@@ -196,7 +196,7 @@ def send_metrics(cluster: Cluster, run_id: str):
 
 
 def init_metrics():
-    subprocess.run(shlex.split("docker start testground-influxdb"))
+    pass  # TODO
 
 
 @click.command()
