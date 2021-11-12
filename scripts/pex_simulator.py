@@ -15,14 +15,14 @@ import convergence
 
 
 class Policy(IntEnum):
-    Random = auto()
+    Rand = auto()
     Pushpull = auto()
     Head = auto()
 
     @staticmethod
     def from_string(name: str):
         if name == "rand":
-            return Policy.Random
+            return Policy.Rand
         if name == "pushpull":
             return Policy.Pushpull
         if name == "head":
@@ -79,7 +79,7 @@ class Node:
         self.neighbors.append(neighbor)
 
     def select_neighbors(self, selection: Policy, fanout: int):
-        if selection is Policy.Random:
+        if selection is Policy.Rand:
             return random.choices(self.neighbors, k=fanout)
         else:
             raise ValueError("Invalid selection policy")
@@ -142,8 +142,10 @@ class Cluster:
             record.hop += 1
         records = self._merge_records(node)
         if self.merge is Policy.Head:
-            node.neighbors = sorted(records, key=lambda r: r.hop)
-        node.neighbors = node.neighbors[:self.view_size]
+            records = sorted(records, key=lambda r: r.hop)
+        if self.merge is Policy.Rand:
+            random.shuffle(records)
+        node.neighbors = records[:self.view_size]
 
     def _merge_records(self, node: Node) -> List[Record]:
         buffer: List[Record] = copy.deepcopy(node.neighbors)
@@ -217,6 +219,7 @@ def simulate(ticks: int, repetitions: int, step: int, fanout: int, min_nodes: in
              merge: str, folder: str, plot: bool):
     simulation_id = "".join(random.choices(string.ascii_lowercase + string.digits, k=16))
     output_file = os.path.join(folder, f"{simulation_id}-pex.sim") if folder else f"{simulation_id}-pex.sim"
+    max_nodes = max(min_nodes, max_nodes)
     with open(output_file, "a") as file:
         file.write(f"{min_nodes} {max_nodes} {repetitions} {step}\n")
     init_metrics()
@@ -233,7 +236,7 @@ def simulate(ticks: int, repetitions: int, step: int, fanout: int, min_nodes: in
                                             ascii_lowercase + string.digits, k=16))
             print(f"{n} - Run {run_id} ({i + 1}/{repetitions}) started")
             for j in range(ticks):
-                print(f"{n}({i+1}/{repetitions}) - Tick {j + 1}/{ticks}...")
+                print(f"N={n}({i+1}/{repetitions}) - Tick {j + 1}/{ticks}...")
                 cluster.simulate_tick(j)
                 send_metrics(cluster, run_id)
             print(f"{n} - Run {run_id} ({i + 1}/{repetitions}) finished")
