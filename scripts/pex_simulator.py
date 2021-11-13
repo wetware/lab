@@ -154,7 +154,7 @@ class Cluster:
         node._pull_buffer = list(filter(self._dedup_filter(buffer),
                                         node._pull_buffer))
         buffer = list(filter(self._dedup_filter(node._pull_buffer), buffer))
-        buffer += node._pull_buffer
+        buffer = node._pull_buffer + buffer
         return buffer
 
     def _dedup_filter(self, neighbors: List[Record]):
