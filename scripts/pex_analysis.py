@@ -53,11 +53,53 @@ def plot(run: str, tick: List[int], dd: bool, pth: bool, cc: bool, mtx: bool, al
             plt.title(f"N={graph.number_of_nodes()}, Tick={t} - Adjacency matrix")
             plt.show()
 
-@cli1.command()
+@cli2.command()
 @click.argument("run", type=str)
-@click.option("-t", "--tick", type=int, multiple=True, default=[1, 100])
-def calculate(run:str, tick: List[int]):
-    pass  # TODO
+@click.option("-t", "--ticks", type=int, default=100)
+@click.option("-cd", is_flag=True)
+@click.option("-pth", is_flag=True)
+@click.option("-cc", is_flag=True)
+@click.option("-rd", is_flag=True)
+@click.option("-all", is_flag=True)
+def calculate(run: str, ticks: int, cd: bool, pth: bool, cc: bool, rd: bool, all:bool):
+    ccs = []
+    pths = []
+    cds = []
+    rds = []
+    n = network(run, 1).number_of_nodes()
+
+    for t in range(1, ticks + 1):
+        print(f"Calculating tick {t}")
+        g = network(run, t)
+        if cc or all:
+            print(f"Tick {t} - Calculating average clustering coefficient")
+            ccs.append(nx.average_clustering(g))
+        if pth or all:
+            print(f"Tick {t} - Calculating average shortest path length")
+            pths.append(nx.average_shortest_path_length(g))
+        if cd or all:
+            print(f"Tick {t} - Calculating average node degree")
+            cds.append(mean([len(g.in_edges(n)) + len(g.out_edges(n)) for n in g.nodes]))
+        if rd or all:
+            print(f"Tick {t} - Calculating average record degree")
+            rds.append(mean([len(g.in_edges(n)) for n in g.nodes]))
+
+    if cc or all:
+        plt.plot(ccs)
+        plt.title(f"N={n}, Tick={ticks} - Network clustering coefficient")
+        plt.show()
+    if pth or all:
+        plt.plot(pths)
+        plt.title(f"N={n}, Tick={ticks} - Network average shortest path length")
+        plt.show()
+    if cd or all:
+        plt.plot(cds)
+        plt.title(f"N={n}, Tick={ticks} - Network average node degree")
+        plt.show()
+    if rd or all:
+        plt.plot(rds)
+        plt.title(f"N={n}, Tick={ticks} - Network average records")
+        plt.show()
 
 
 def network(run: str, tick: int) -> nx.DiGraph:
