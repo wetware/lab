@@ -1,9 +1,12 @@
+import itertools
 from statistics import mean
 from typing import List
 import matplotlib.pyplot as plt
 import networkx as nx
+import numpy as np
 from influxdb import InfluxDBClient
 import click
+from matplotlib.ticker import MaxNLocator
 
 
 @click.group()
@@ -29,7 +32,7 @@ def cli3():
 @click.option("-cc", is_flag=True)
 @click.option("-mtx", is_flag=True)
 @click.option("-all", is_flag=True)
-def plot(run: str, tick: List[int], dd: bool, pth: bool, cc: bool, mtx: bool, all:bool):
+def plot(run: str, tick: List[int], dd: bool, pth: bool, cc: bool, mtx: bool, all: bool):
     for t in tick:
         graph = network(run, t)
         if dd or all:
@@ -53,6 +56,7 @@ def plot(run: str, tick: List[int], dd: bool, pth: bool, cc: bool, mtx: bool, al
             plt.title(f"N={graph.number_of_nodes()}, Tick={t} - Adjacency matrix")
             plt.show()
 
+
 @cli2.command()
 @click.argument("run", type=str)
 @click.option("-t", "--ticks", type=int, default=100)
@@ -62,14 +66,14 @@ def plot(run: str, tick: List[int], dd: bool, pth: bool, cc: bool, mtx: bool, al
 @click.option("-rd", is_flag=True)
 @click.option("-pt", is_flag=True)
 @click.option("-all", is_flag=True)
-def calculate(run: str, ticks: int, cd: bool, pth: bool, cc: bool, rd: bool, pt: bool, all:bool):
+def calculate(run: str, ticks: int, cd: bool, pth: bool, cc: bool, rd: bool, pt: bool, all: bool):
     n = network(run, 1).number_of_nodes()
 
     ccs = []
     pths = []
     cds = []
     rds = []
-    pts = [0 for _ in range(n)]
+    pts = [[0 for _ in range(n)] for _ in range(2)]
 
     for t in range(1, ticks + 1):
         print(f"Calculating tick {t}")
@@ -90,12 +94,11 @@ def calculate(run: str, ticks: int, cd: bool, pth: bool, cc: bool, rd: bool, pt:
             rds.append(mean([len(g.in_edges(n)) for n in g.nodes]))
         if pt or all:
             print(f"Tick {t} - Calculating partition remember time")
-            for n in g.nodes:
-                for e in g.in_edges(n):
+            for node in g.nodes:
+                for e in g.in_edges(node):
                     if g.nodes[e[0]]["cluster"] != g.nodes[e[1]]["cluster"]:
-                        pts[n] += 1
+                        pts[int(g.nodes[node]["cluster"])][node] += 1
                         break
-
 
     if cc or all:
         plt.plot(ccs)
@@ -114,8 +117,13 @@ def calculate(run: str, ticks: int, cd: bool, pth: bool, cc: bool, rd: bool, pt:
         plt.title(f"N={n}, Tick={ticks} - Network average records")
         plt.show()
     if pt or all:
-        plt.plot(pts)
-        plt.axhline(y=mean(pts), color="r", linestyle="-", label=f"Average partition remember time: {mean(pts)}")
+        pts_chained = list(itertools.chain(*[list(filter(lambda n: n != 0, pt)) for pt in pts]))
+        plt.hist(pts_chained)
+        plt.title(f"N={n}, Tick={ticks} - Network partition remember time")
+        plt.show()
+
+        pts = [mean(filter(lambda n: n != 0, pt)) for pt in pts]
+        plt.bar([0, 1], pts, tick_label=[0, 1])
         plt.title(f"N={n}, Tick={ticks} - Network partition remember time")
         plt.show()
 

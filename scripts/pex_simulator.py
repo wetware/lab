@@ -115,6 +115,8 @@ class Node:
 
 
 class Cluster:
+    next_id = 0
+
     def __init__(self, fanout: int, view_size: int, selection: Policy,
                  propagation: Policy, merge: Policy):
         self.fanout = fanout
@@ -124,7 +126,8 @@ class Cluster:
         self.merge = merge
         self.nodes: Dict[int, Node] = {}
         self.tick = 0
-        self.id = "".join(random.choices(string.ascii_lowercase + string.digits, k=16))
+        self.id = Cluster.next_id
+        Cluster.next_id += 1
 
     def initialize_nodes(self, nodes: List[Node]):
         for node in nodes:
@@ -263,13 +266,14 @@ def init_metrics():
 @click.option("-pp", "--propagation", type=str, default="pushpull")
 @click.option("-mp", "--merge", type=str, default="head")
 @click.option("-pt", "--partition-tick", type=int)
+@click.option("-ps", "--partition-size", type=float, default=0.5)
 @click.option('-f', '--folder', help="Output folder to store the file to.",
               type=str)
 @click.option('--plot', help="Plot simulation convergence graph.",
               is_flag=True)
 def simulate(ticks: int, repetitions: int, step: int, fanout: int, min_nodes: int,
              max_nodes: int, view_size: int, selection: str, propagation: str,
-             merge: str, partition_tick: int, folder: str, plot: bool):
+             merge: str, partition_tick: int, partition_size: float, folder: str, plot: bool):
     simulation_id = "".join(random.choices(string.ascii_lowercase + string.digits, k=16))
     output_file = os.path.join(folder,
                                f"{simulation_id}.partition.pex.sim") if folder else f"{simulation_id}.partition.pex.sim"
@@ -297,13 +301,13 @@ def simulate(ticks: int, repetitions: int, step: int, fanout: int, min_nodes: in
                 print(f"N={n}({i + 1}/{repetitions}) - Tick {j + 1}/{ticks}...")
                 if partition_tick and j == partition_tick:
                     partition = random.sample(list(c0.nodes.values()),
-                                              k=int(len(c0.nodes.values()) * 0.5))  # todo: decide how to partition
+                                              k=int(len(c0.nodes.values()) * partition_size))  # todo: decide how to partition
                     clusters.append(c0.partition(partition))
                     print(f"Partitioned: {clusters}")
                 for c in clusters:
                     c.simulate_tick(j)
                     send_metrics(c, run_id, j)
-            print(f"{n} - Run {run_id} ({i + 1}/{repetitions}) finished")
+            print(f"{n} - Run {run_id} ({i + 1}/{repetitions}) finished - {clusters}")
 
             with open(output_file, "a") as file:
                 file.write(f"{os.path.join(folder, run_id)}\n")
