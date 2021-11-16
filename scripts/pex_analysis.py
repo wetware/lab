@@ -60,17 +60,22 @@ def plot(run: str, tick: List[int], dd: bool, pth: bool, cc: bool, mtx: bool, al
 @click.option("-pth", is_flag=True)
 @click.option("-cc", is_flag=True)
 @click.option("-rd", is_flag=True)
+@click.option("-pt", is_flag=True)
 @click.option("-all", is_flag=True)
-def calculate(run: str, ticks: int, cd: bool, pth: bool, cc: bool, rd: bool, all:bool):
+def calculate(run: str, ticks: int, cd: bool, pth: bool, cc: bool, rd: bool, pt: bool, all:bool):
+    n = network(run, 1).number_of_nodes()
+
     ccs = []
     pths = []
     cds = []
     rds = []
-    n = network(run, 1).number_of_nodes()
+    pts = [0 for _ in range(n)]
 
     for t in range(1, ticks + 1):
         print(f"Calculating tick {t}")
         g = network(run, t)
+        if g.number_of_nodes() == 0:
+            break
         if cc or all:
             print(f"Tick {t} - Calculating average clustering coefficient")
             ccs.append(nx.average_clustering(g))
@@ -83,6 +88,14 @@ def calculate(run: str, ticks: int, cd: bool, pth: bool, cc: bool, rd: bool, all
         if rd or all:
             print(f"Tick {t} - Calculating average record degree")
             rds.append(mean([len(g.in_edges(n)) for n in g.nodes]))
+        if pt or all:
+            print(f"Tick {t} - Calculating partition remember time")
+            for n in g.nodes:
+                for e in g.in_edges(n):
+                    if g.nodes[e[0]]["cluster"] != g.nodes[e[1]]["cluster"]:
+                        pts[n] += 1
+                        break
+
 
     if cc or all:
         plt.plot(ccs)
@@ -99,6 +112,11 @@ def calculate(run: str, ticks: int, cd: bool, pth: bool, cc: bool, rd: bool, all
     if rd or all:
         plt.plot(rds)
         plt.title(f"N={n}, Tick={ticks} - Network average records")
+        plt.show()
+    if pt or all:
+        plt.plot(pts)
+        plt.axhline(y=mean(pts), color="r", linestyle="-", label=f"Average partition remember time: {mean(pts)}")
+        plt.title(f"N={n}, Tick={ticks} - Network partition remember time")
         plt.show()
 
 
@@ -128,6 +146,7 @@ def network(run: str, tick: int) -> nx.DiGraph:
         for record in point["records"].split("-"):
             if record:
                 graph.add_edge(nodes_seq[point["node"]], nodes_seq[record])
+        nx.set_node_attributes(graph, {nodes_seq[point["node"]]: point["cluster"]}, name="cluster")
     return graph
 
 
