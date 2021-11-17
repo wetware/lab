@@ -1,12 +1,11 @@
 import itertools
+import os
 from statistics import mean
 from typing import List
 import matplotlib.pyplot as plt
 import networkx as nx
-import numpy as np
 from influxdb import InfluxDBClient
 import click
-from matplotlib.ticker import MaxNLocator
 
 
 @click.group()
@@ -34,7 +33,7 @@ def cli3():
 @click.option("-all", is_flag=True)
 def plot(run: str, tick: List[int], dd: bool, pth: bool, cc: bool, mtx: bool, all: bool):
     for t in tick:
-        graph = network(run, t)
+        graph = network_from_influx(run, t)
         if dd or all:
             degrees = [graph.degree(n) for n in graph.nodes()]
             plt.hist(degrees)
@@ -66,8 +65,14 @@ def plot(run: str, tick: List[int], dd: bool, pth: bool, cc: bool, mtx: bool, al
 @click.option("-rd", is_flag=True)
 @click.option("-pt", is_flag=True)
 @click.option("-all", is_flag=True)
-def calculate(run: str, ticks: int, cd: bool, pth: bool, cc: bool, rd: bool, pt: bool, all: bool):
-    n = network(run, 1).number_of_nodes()
+@click.option("--influx", is_flag=True)
+@click.option("-f", "--folder", type=str)
+def calculate(run: str, ticks: int, cd: bool, pth: bool, cc: bool, rd: bool,
+              pt: bool, all: bool, influx: bool, folder: str):
+    if influx:
+        n = network_from_influx(run, 1).number_of_nodes()
+    else:
+        n = network_from_files(run, 1, folder).number_of_nodes()
 
     ccs = []
     pths = []
@@ -75,25 +80,31 @@ def calculate(run: str, ticks: int, cd: bool, pth: bool, cc: bool, rd: bool, pt:
     rds = []
     pts = [[0 for _ in range(n)] for _ in range(2)]
 
-    for t in range(1, ticks + 1):
-        print(f"Calculating tick {t}")
-        g = network(run, t)
-        if g.number_of_nodes() == 0:
+    tick = 0
+    for tick in range(1, ticks + 1):
+        print(f"Calculating tick {tick}")
+        if influx:
+            g = network_from_influx(run, tick)
+        else:
+            g = network_from_files(run, tick, folder)
+
+        print(f"Network loaded {tick}")
+        if not g or g.number_of_nodes() == 0:
             break
         if cc or all:
-            print(f"Tick {t} - Calculating average clustering coefficient")
+            print(f"Tick {tick} - Calculating average clustering coefficient")
             ccs.append(nx.average_clustering(g))
         if pth or all:
-            print(f"Tick {t} - Calculating average shortest path length")
+            print(f"Tick {tick} - Calculating average shortest path length")
             pths.append(nx.average_shortest_path_length(g))
         if cd or all:
-            print(f"Tick {t} - Calculating average node degree")
+            print(f"Tick {tick} - Calculating average node degree")
             cds.append(mean([len(g.in_edges(n)) + len(g.out_edges(n)) for n in g.nodes]))
         if rd or all:
-            print(f"Tick {t} - Calculating average record degree")
+            print(f"Tick {tick} - Calculating average record degree")
             rds.append(mean([len(g.in_edges(n)) for n in g.nodes]))
         if pt or all:
-            print(f"Tick {t} - Calculating partition remember time")
+            print(f"Tick {tick} - Calculating partition remember time")
             for node in g.nodes:
                 for e in g.in_edges(node):
                     if g.nodes[e[0]]["cluster"] != g.nodes[e[1]]["cluster"]:
@@ -102,33 +113,40 @@ def calculate(run: str, ticks: int, cd: bool, pth: bool, cc: bool, rd: bool, pt:
 
     if cc or all:
         plt.plot(ccs)
-        plt.title(f"N={n}, Tick={ticks} - Network clustering coefficient")
+        plt.title(f"N={n}, Tick={tick} - Network clustering coefficient")
         plt.show()
     if pth or all:
         plt.plot(pths)
-        plt.title(f"N={n}, Tick={ticks} - Network average shortest path length")
+        plt.title(f"N={n}, Tick={tick} - Network average shortest path length")
         plt.show()
     if cd or all:
         plt.plot(cds)
-        plt.title(f"N={n}, Tick={ticks} - Network average node degree")
+        plt.title(f"N={n}, Tick={tick} - Network average node degree")
         plt.show()
     if rd or all:
         plt.plot(rds)
-        plt.title(f"N={n}, Tick={ticks} - Network average records")
+        plt.title(f"N={n}, Tick={tick} - Network average records")
         plt.show()
     if pt or all:
-        pts_chained = list(itertools.chain(*[list(filter(lambda n: n != 0, pt)) for pt in pts]))
+        g = network_from_files(run, tick, folder)
+        partitions = [0, 0]
+        for node in g.nodes:
+            partitions[g.nodes[node]["cluster"]] += 1
+        pts = [list(filter(lambda n: n != 0, pt)) for pt in pts]
+        pts_chained = list(itertools.chain(*pts))
         plt.hist(pts_chained)
-        plt.title(f"N={n}, Tick={ticks} - Network partition remember time")
+        plt.title(
+            f"N={n}, Tick={tick}, Partition={min(partitions) / g.number_of_nodes()} - Network partition remember time")
         plt.show()
 
-        pts = [mean(filter(lambda n: n != 0, pt)) for pt in pts]
+        pts = [mean(pt) if pt else 0 for pt in pts]
         plt.bar([0, 1], pts, tick_label=[0, 1])
-        plt.title(f"N={n}, Tick={ticks} - Network partition remember time")
+        plt.title(
+            f"N={n}, Tick={tick}, Partitions={min(partitions) / g.number_of_nodes()} - Network partition remember time")
         plt.show()
 
 
-def network(run: str, tick: int) -> nx.DiGraph:
+def network_from_influx(run: str, tick: int) -> nx.DiGraph:
     graph = nx.DiGraph()
     client = InfluxDBClient(host="localhost", port=8086)
     client.switch_database("testground")
@@ -156,6 +174,14 @@ def network(run: str, tick: int) -> nx.DiGraph:
                 graph.add_edge(nodes_seq[point["node"]], nodes_seq[record])
         nx.set_node_attributes(graph, {nodes_seq[point["node"]]: point["cluster"]}, name="cluster")
     return graph
+
+
+def network_from_files(run: str, tick: int, folder: str) -> nx.DiGraph:
+    folder = os.path.join(folder, run) if folder else run
+    input_file = os.path.join(folder, f"{run}.{tick}.partition.sim")
+    if os.path.isfile(input_file):
+        return nx.read_gpickle(input_file)
+    return None
 
 
 cli = click.CommandCollection(sources=[cli1, cli2, cli3])

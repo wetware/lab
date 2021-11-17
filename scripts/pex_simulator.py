@@ -1,3 +1,4 @@
+import networkx as nx
 from collections import Counter
 import copy
 import os.path
@@ -86,7 +87,6 @@ class Node:
     def __repr__(self):
         return str(self)
 
-
     @property
     def record(self):
         return Record(self.index, 0)
@@ -124,6 +124,7 @@ class Cluster:
         self.selection = selection
         self.propagation = propagation
         self.merge = merge
+        self.graph = nx.DiGraph()
         self.nodes: Dict[int, Node] = {}
         self.tick = 0
         self.id = Cluster.next_id
@@ -133,6 +134,10 @@ class Cluster:
         for node in nodes:
             self.nodes[node.index] = node
             node.set_cluster(self)
+            if self.graph.has_node(node.index):
+                self.graph.nodes[node.index]["cluster"] = self.id
+            else:
+                self.graph.add_node(node.index, cluster=self.id)
 
     def initialize_topology(self, topology: Topology):
         for i, node in self.nodes.items():
@@ -143,6 +148,7 @@ class Cluster:
                     record = neighbor.record
                     record.hop += 1
                     node.add_neighbor(record)
+                    self.graph.add_edge(node.index, neighbor.index)
 
     def print_network(self):
         for node in self.nodes.values():
@@ -160,6 +166,7 @@ class Cluster:
                     neighbor = self._to_node(record)
                     if not neighbor:
                         node.del_neighbor(record)
+                        self.graph.remove_edge(node.index, record.index)
                         continue
                     if self.propagation is Policy.Pushpull:
                         self._push(node, neighbor)
@@ -170,6 +177,7 @@ class Cluster:
 
     def partition(self, nodes: List[Node]) -> "Cluster":
         partition = Cluster(self.fanout, self.view_size, self.selection, self.propagation, self.merge)
+        partition.graph = self.graph
         partition.initialize_nodes(nodes)
         for node in nodes:
             self.nodes.pop(node.index)
@@ -191,6 +199,10 @@ class Cluster:
         if self.merge is Policy.Rand:
             random.shuffle(records)
         node._pull_buffer = []
+        for neighbor in node.neighbors:
+            self.graph.remove_edge(node.index, neighbor.index)
+        for neighbor in records[:self.view_size]:
+            self.graph.add_edge(node.index, neighbor.index)
         node.set_neighbors(records[:self.view_size])
 
     def _merge_records(self, node: Node) -> List[Record]:
@@ -226,6 +238,26 @@ class Cluster:
         return str(self)
 
 
+class PartitionType(IntEnum):
+    Rand = auto()
+    Lineal = auto()
+
+    @staticmethod
+    def from_string(name: str):
+        if name == "rand":
+            return PartitionType.Rand
+        if name == "lineal":
+            return PartitionType.Lineal
+        raise ValueError("Invalid partition type name")
+
+    def partition_nodes(self, nodes: List[Node], partition_size: float) -> List[Node]:
+        if self is PartitionType.Rand:
+            return random.sample(nodes, k=int(len(nodes) * partition_size))
+        elif self is PartitionType.Lineal:
+            return nodes[:int(len(nodes) * partition_size)]
+        raise ValueError("Invalid partition type")
+
+
 def send_metrics(cluster: Cluster, run_id: str, tick: int):
     client = InfluxDBClient(host="localhost", port=8086)
     client.switch_database("testground")
@@ -249,9 +281,17 @@ def send_metrics(cluster: Cluster, run_id: str, tick: int):
     client.write_points(json_body)
 
 
+def write_cluster(clusters: List[Cluster], run_id: str, tick: int, folder: str):
+    folder = os.path.join(folder, run_id) if folder else run_id
+    output_file = os.path.join(folder,f"{run_id}.{tick}.partition.sim")
+    if not os.path.isdir(folder):
+        os.mkdir(folder)
+
+    nx.write_gpickle(clusters[0].graph, output_file)
+
+
 def init_metrics():
     pass  # TODO
-
 
 
 @click.command()
@@ -267,13 +307,16 @@ def init_metrics():
 @click.option("-mp", "--merge", type=str, default="head")
 @click.option("-pt", "--partition-tick", type=int)
 @click.option("-ps", "--partition-size", type=float, default=0.5)
+@click.option("-ptp", "--partition-type", type=str, default="rand")
+@click.option("--influx", is_flag=True)
 @click.option('-f', '--folder', help="Output folder to store the file to.",
               type=str)
 @click.option('--plot', help="Plot simulation convergence graph.",
               is_flag=True)
 def simulate(ticks: int, repetitions: int, step: int, fanout: int, min_nodes: int,
              max_nodes: int, view_size: int, selection: str, propagation: str,
-             merge: str, partition_tick: int, partition_size: float, folder: str, plot: bool):
+             merge: str, partition_tick: int, partition_size: float, partition_type: str,
+             influx: bool, folder: str, plot: bool):
     simulation_id = "".join(random.choices(string.ascii_lowercase + string.digits, k=16))
     output_file = os.path.join(folder,
                                f"{simulation_id}.partition.pex.sim") if folder else f"{simulation_id}.partition.pex.sim"
@@ -281,6 +324,7 @@ def simulate(ticks: int, repetitions: int, step: int, fanout: int, min_nodes: in
     with open(output_file, "a") as file:
         file.write(f"{min_nodes} {max_nodes} {repetitions} {step}\n")
     init_metrics()
+    partition_type = PartitionType.from_string(partition_type)
     for n in range(min_nodes, max_nodes + 1, step):
         for i in range(repetitions):
             global nodes
@@ -297,16 +341,18 @@ def simulate(ticks: int, repetitions: int, step: int, fanout: int, min_nodes: in
             run_id = "".join(random.choices(string.
                                             ascii_lowercase + string.digits, k=16))
             print(f"{n} - Run {run_id} ({i + 1}/{repetitions}) started")
-            for j in range(ticks):
-                print(f"N={n}({i + 1}/{repetitions}) - Tick {j + 1}/{ticks}...")
-                if partition_tick and j == partition_tick:
-                    partition = random.sample(list(c0.nodes.values()),
-                                              k=int(len(c0.nodes.values()) * partition_size))  # todo: decide how to partition
+            for tick in range(1,ticks+1):
+                print(f"N={n}({i + 1}/{repetitions}) - Tick {tick + 1}/{ticks}...")
+                if partition_tick and tick == partition_tick:
+                    partition = partition_type.partition_nodes(list(c0.nodes.values()), partition_size)
                     clusters.append(c0.partition(partition))
                     print(f"Partitioned: {clusters}")
                 for c in clusters:
-                    c.simulate_tick(j)
-                    send_metrics(c, run_id, j)
+                    c.simulate_tick(tick)
+                    if influx:
+                        send_metrics(c, run_id, tick)
+                if not influx:
+                    write_cluster(clusters, run_id, tick, folder)
             print(f"{n} - Run {run_id} ({i + 1}/{repetitions}) finished - {clusters}")
 
             with open(output_file, "a") as file:
