@@ -1,3 +1,4 @@
+import numpy as np
 import networkx as nx
 from collections import Counter
 import copy
@@ -47,6 +48,15 @@ class Policy(IntEnum):
 
 class Topology(IntEnum):
     RING = auto()
+    RAND = auto()
+
+    @staticmethod
+    def from_string(name: str):
+        if name == "rand":
+            return Topology.RAND
+        if name == "ring":
+            return Topology.RING
+        raise ValueError("Invalid topology name")
 
     def are_neighbors(self, i: int, j: int, nodes_amount: int):
         if self == Topology.RING:
@@ -56,7 +66,19 @@ class Topology(IntEnum):
                 return True
             if j == 0 and i == nodes_amount - 1:
                 return True
-            return False
+        if self is Topology.RAND:
+            r = random.Random()
+            r.seed(1234)
+            index = [k for k in range(nodes_amount)]
+            r.shuffle(index)
+            i, j = index[i], index[j]
+            if i + 1 == j or j + 1 == i:
+                return True
+            if i == 0 and j == nodes_amount - 1:
+                return True
+            if j == 0 and i == nodes_amount - 1:
+                return True
+        return False
 
 
 class Record:
@@ -72,6 +94,9 @@ class Record:
 
     def __repr__(self):
         return str(self)
+
+    def copy(self) -> "Record":
+        return Record(self.index, self.hop)
 
 
 class Node:
@@ -102,7 +127,9 @@ class Node:
         self.neighbors.append(neighbor)
 
     def del_neighbor(self, neighbor: Record):
+        assert neighbor in self.neighbors
         self.neighbors.remove(neighbor)
+        assert neighbor not in self.neighbors
 
     def set_cluster(self, cluster: "Cluster"):
         self._cluster = cluster
@@ -118,12 +145,16 @@ class Cluster:
     next_id = 0
 
     def __init__(self, fanout: int, view_size: int, selection: Policy,
-                 propagation: Policy, merge: Policy):
+                 propagation: Policy, merge: Policy, H: int, S: int, R: int, E: bool):
         self.fanout = fanout
         self.view_size = view_size
         self.selection = selection
         self.propagation = propagation
         self.merge = merge
+        self.H = H
+        self.S = S
+        self.R = R
+        self.E = E
         self.graph = nx.DiGraph()
         self.nodes: Dict[int, Node] = {}
         self.tick = 0
@@ -165,8 +196,9 @@ class Cluster:
                 for record in node.select_neighbors(self.selection, self.fanout):
                     neighbor = self._to_node(record)
                     if not neighbor:
-                        node.del_neighbor(record)
-                        self.graph.remove_edge(node.index, record.index)
+                        if not self.E:
+                            node.del_neighbor(record)
+                            self.graph.remove_edge(node.index, record.index)
                         continue
                     if self.propagation is Policy.Pushpull:
                         self._push(node, neighbor)
@@ -176,7 +208,9 @@ class Cluster:
                     exchange_amount += 1
 
     def partition(self, nodes: List[Node]) -> "Cluster":
-        partition = Cluster(self.fanout, self.view_size, self.selection, self.propagation, self.merge)
+        partition = Cluster(self.fanout, self.view_size, self.selection,
+                            self.propagation, self.merge, self.H, self.S, self.R,
+                            self.E)
         partition.graph = self.graph
         partition.initialize_nodes(nodes)
         for node in nodes:
@@ -187,33 +221,49 @@ class Cluster:
         return self.nodes.get(record.index)
 
     def _push(self, node: Node, neighbor: Node):
-        neighbor._pull_buffer = copy.deepcopy(node.neighbors)
+        neighbor._pull_buffer = [n.copy() for n in node.neighbors]
         neighbor._pull_buffer.append(node.record)
 
     def _pull(self, node: Node, neighbor: Node):
-        for record in node._pull_buffer:
-            record.hop += 1
         records = self._merge_records(node)
-        if self.merge is Policy.Head:
-            records = sorted(records, key=lambda r: r.hop)
-        if self.merge is Policy.Rand:
-            random.shuffle(records)
+
+        R = min(self. R, len(records), self.view_size)
+        c = self.view_size-R
+        S = min(self.S, max(len(records) - c, 0))
+        H = min(self.H, max(len(records) - (c + S), 0))
+
+        records = records[S:]
+        records = sorted(records, key=lambda r: r.hop, reverse=True)
+        oldest, records = records[:R], records[R+H:]
+        np.random.shuffle(records)
+        records = records[:c] + oldest
+
         node._pull_buffer = []
+
+        s_old, s_new = set(map(lambda n: n.index, node.neighbors)), set(map(lambda n: n.index, records))
+        for i in s_old - s_new:
+            self.graph.remove_edge(node.index, i)
+        for i in s_new - s_old:
+            self.graph.add_edge(node.index, i)
+
+        node.set_neighbors(records)
         for neighbor in node.neighbors:
-            self.graph.remove_edge(node.index, neighbor.index)
-        for neighbor in records[:self.view_size]:
-            self.graph.add_edge(node.index, neighbor.index)
-        node.set_neighbors(records[:self.view_size])
+            neighbor.hop += 1
 
     def _merge_records(self, node: Node) -> List[Record]:
-        buffer: List[Record] = copy.deepcopy(node.neighbors)
-        node._pull_buffer = list(filter(self._local_filter(node),
-                                        node._pull_buffer))
-        node._pull_buffer = list(filter(self._dedup_filter(buffer),
-                                        node._pull_buffer))
+        buffer: List[Record] = []
+        pull_set = dict((r.index, r) for r in node._pull_buffer)
+        for r1 in node.neighbors:
+            r2 = pull_set.get(r1.index, None)
+            if not r2 or r1.hop <= r2.hop:
+                buffer.append(r1)
 
-        buffer = list(filter(self._dedup_filter(node._pull_buffer), buffer))
-        buffer = node._pull_buffer + buffer
+        buffer_set = dict((r.index, r) for r in buffer)
+        for r1 in node._pull_buffer:
+            r2 = buffer_set.get(r1.index, None)
+            if r1.index != node.index and not r2:
+                buffer.append(r1)
+
         return buffer
 
     def _dedup_filter(self, neighbors: List[Record]):
@@ -300,11 +350,16 @@ def init_metrics():
 @click.option("-s", "--step", type=int, default=1)
 @click.option("-min", "--min-nodes", type=int, default=3)
 @click.option("-max", "--max-nodes", type=int, default=3)
+@click.option("-tp", "--topology", type=str, default="ring")
 @click.option("-f", "--fanout", type=int, default=1)
 @click.option("-v", "--view-size", type=int, default=32)
 @click.option("-sp", "--selection", type=str, default="rand")
 @click.option("-pp", "--propagation", type=str, default="pushpull")
 @click.option("-mp", "--merge", type=str, default="head")
+@click.option("-H", type=int, default=0)
+@click.option("-S", type=int, default=0)
+@click.option("-R", type=int, default=0)
+@click.option("-E", is_flag=True)
 @click.option("-pt", "--partition-tick", type=int)
 @click.option("-ps", "--partition-size", type=float, default=0.5)
 @click.option("-ptp", "--partition-type", type=str, default="rand")
@@ -314,9 +369,9 @@ def init_metrics():
 @click.option('--plot', help="Plot simulation convergence graph.",
               is_flag=True)
 def simulate(ticks: int, repetitions: int, step: int, fanout: int, min_nodes: int,
-             max_nodes: int, view_size: int, selection: str, propagation: str,
-             merge: str, partition_tick: int, partition_size: float, partition_type: str,
-             influx: bool, folder: str, plot: bool):
+             max_nodes: int, topology: str, view_size: int, selection: str, propagation: str,
+             merge: str, h: int, s: int, r: int, e: bool, partition_tick: int,
+             partition_size: float, partition_type: str, influx: bool, folder: str, plot: bool):
     simulation_id = "".join(random.choices(string.ascii_lowercase + string.digits, k=16))
     output_file = os.path.join(folder,
                                f"{simulation_id}.partition.pex.sim") if folder else f"{simulation_id}.partition.pex.sim"
@@ -333,16 +388,16 @@ def simulate(ticks: int, repetitions: int, step: int, fanout: int, min_nodes: in
             c0 = Cluster(fanout, view_size,
                          Policy.from_string(selection),
                          Policy.from_string(propagation),
-                         Policy.from_string(merge))
+                         Policy.from_string(merge), h, s, r, e)
             clusters.append(c0)
             c0.initialize_nodes(nodes)
-            c0.initialize_topology(Topology.RING)
+            c0.initialize_topology(Topology.from_string(topology))
 
             run_id = "".join(random.choices(string.
                                             ascii_lowercase + string.digits, k=16))
             print(f"{n} - Run {run_id} ({i + 1}/{repetitions}) started")
             for tick in range(1,ticks+1):
-                print(f"N={n}({i + 1}/{repetitions}) - Tick {tick + 1}/{ticks}...")
+                print(f"N={n}({i + 1}/{repetitions}) - Tick {tick}/{ticks}...")
                 if partition_tick and tick == partition_tick:
                     partition = partition_type.partition_nodes(list(c0.nodes.values()), partition_size)
                     clusters.append(c0.partition(partition))

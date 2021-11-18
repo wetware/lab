@@ -31,9 +31,15 @@ def cli3():
 @click.option("-cc", is_flag=True)
 @click.option("-mtx", is_flag=True)
 @click.option("-all", is_flag=True)
-def plot(run: str, tick: List[int], dd: bool, pth: bool, cc: bool, mtx: bool, all: bool):
+@click.option("--influx", is_flag=True)
+@click.option("-f", "--folder", type=str)
+def plot(run: str, tick: List[int], dd: bool, pth: bool, cc: bool, mtx: bool, all: bool,
+         influx:bool, folder: str):
     for t in tick:
-        graph = network_from_influx(run, t)
+        if influx:
+            graph = network_from_influx(run, t)
+        else:
+            graph = network_from_files(run, t, folder)
         if dd or all:
             degrees = [graph.degree(n) for n in graph.nodes()]
             plt.hist(degrees)
@@ -78,7 +84,7 @@ def calculate(run: str, ticks: int, cd: bool, pth: bool, cc: bool, rd: bool,
     pths = []
     cds = []
     rds = []
-    pts = [[0 for _ in range(n)] for _ in range(2)]
+    pts = [[] for _ in range(2)]
 
     tick = 0
     for tick in range(1, ticks + 1):
@@ -105,44 +111,48 @@ def calculate(run: str, ticks: int, cd: bool, pth: bool, cc: bool, rd: bool,
             rds.append(mean([len(g.in_edges(n)) for n in g.nodes]))
         if pt or all:
             print(f"Tick {tick} - Calculating partition remember time")
+            dead_links = [0, 0]
             for node in g.nodes:
                 for e in g.in_edges(node):
                     if g.nodes[e[0]]["cluster"] != g.nodes[e[1]]["cluster"]:
-                        pts[int(g.nodes[node]["cluster"])][node] += 1
-                        break
+                        dead_links[int(g.nodes[node]["cluster"])] += 1
+            pts[0].append(dead_links[0])
+            pts[1].append(dead_links[1])
 
     if cc or all:
         plt.plot(ccs)
-        plt.title(f"N={n}, Tick={tick} - Network clustering coefficient")
+        plt.title(f"N={n}, Tick={tick-1} - Network clustering coefficient")
         plt.show()
     if pth or all:
         plt.plot(pths)
-        plt.title(f"N={n}, Tick={tick} - Network average shortest path length")
+        plt.title(f"N={n}, Tick={tick-1} - Network average shortest path length")
         plt.show()
     if cd or all:
         plt.plot(cds)
-        plt.title(f"N={n}, Tick={tick} - Network average node degree")
+        plt.title(f"N={n}, Tick={tick-1} - Network average node degree")
         plt.show()
     if rd or all:
         plt.plot(rds)
-        plt.title(f"N={n}, Tick={tick} - Network average records")
+        plt.title(f"N={n}, Tick={tick-1} - Network average records")
         plt.show()
     if pt or all:
-        g = network_from_files(run, tick, folder)
+        g = network_from_files(run, tick-1, folder)
         partitions = [0, 0]
         for node in g.nodes:
             partitions[g.nodes[node]["cluster"]] += 1
-        pts = [list(filter(lambda n: n != 0, pt)) for pt in pts]
-        pts_chained = list(itertools.chain(*pts))
-        plt.hist(pts_chained)
+
+        partition_tick = next((i for i, x in enumerate(pts[0]) if x), None)
+        dmax = max(sorted([d for n, d in g.out_degree()], reverse=True))
+
+
+        plt.plot([n/(partitions[0]*dmax) for n in pts[0][partition_tick:]])
         plt.title(
-            f"N={n}, Tick={tick}, Partition={min(partitions) / g.number_of_nodes()} - Network partition remember time")
+            f"N={n}, Tick={tick-1}, Partition={(partitions[0]) / g.number_of_nodes()} - Network partition remember time")
         plt.show()
 
-        pts = [mean(pt) if pt else 0 for pt in pts]
-        plt.bar([0, 1], pts, tick_label=[0, 1])
+        plt.plot([n/(partitions[1]*dmax) for n in pts[1][partition_tick:]])
         plt.title(
-            f"N={n}, Tick={tick}, Partitions={min(partitions) / g.number_of_nodes()} - Network partition remember time")
+            f"N={n}, Tick={tick-1}, Partition={(partitions[1]) / g.number_of_nodes()} - Network partition remember time")
         plt.show()
 
 
