@@ -35,7 +35,7 @@ def cli3():
 @click.option("-f", "--folder", type=str)
 def plot(run: str, tick: List[int], dd: bool, pth: bool, cc: bool, mtx: bool, all: bool,
          influx: bool, folder: str):
-    for t in tick:
+    for i, t in enumerate(tick):
         if influx:
             graph = network_from_influx(run, t)
         else:
@@ -57,7 +57,7 @@ def plot(run: str, tick: List[int], dd: bool, pth: bool, cc: bool, mtx: bool, al
             plt.show()
         if mtx or all:
             matrix = nx.to_numpy_matrix(graph)
-            plt.matshow(matrix, cmap=plt.cm.Blues)
+            plt.matshow(matrix, cmap=plt.cm.Blues, fignum=i)
             plt.title(f"N={graph.number_of_nodes()}, Tick={t} - Adjacency matrix")
             plt.show()
 
@@ -161,7 +161,7 @@ def calculate(runs: str, ticks: int, cd: bool, pth: bool, cc: bool, rd: bool,
         partition_tick = next((i for i, x in enumerate(PTs[0][0]) if x), None)
         dmax = max(sorted([d for n, d in g.out_degree()], reverse=True))
 
-        plt.ylabel("% of deadlinks")
+        plt.ylabel("proportion of deadlinks")
         plt.xlabel("ticks")
 
         for pts, info in zip(PTs, INFOs):

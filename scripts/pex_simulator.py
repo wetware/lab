@@ -145,7 +145,7 @@ class Cluster:
     next_id = 0
 
     def __init__(self, fanout: int, c: int, selection: Policy,
-                 propagation: Policy, merge: Policy, H: int, S: int, R: int, E: bool):
+                 propagation: Policy, merge: Policy, H: int, S: int, R: int, X: int, E: bool):
         self.fanout = fanout
         self.c = c
         self.selection = selection
@@ -154,6 +154,7 @@ class Cluster:
         self.H = H
         self.S = S
         self.R = R
+        self.X = X
         self.E = E
         self.graph = nx.DiGraph()
         self.nodes: Dict[int, Node] = {}
@@ -210,7 +211,7 @@ class Cluster:
     def partition(self, nodes: List[Node]) -> "Cluster":
         partition = Cluster(self.fanout, self.c, self.selection,
                             self.propagation, self.merge, self.H, self.S, self.R,
-                            self.E)
+                            self.X, self.E)
         partition.graph = self.graph
         partition.initialize_nodes(nodes)
         for node in nodes:
@@ -221,7 +222,7 @@ class Cluster:
         return self.nodes.get(record.index)
 
     def _push(self, node: Node, neighbor: Node):
-        c = min(self.c//2, len(node.neighbors))
+        c = min(self.c // 2, len(node.neighbors))
         neighbor._pull_buffer = [n.copy() for n in node.neighbors[:c]]
         neighbor._pull_buffer.append(node.record)
 
@@ -231,13 +232,17 @@ class Cluster:
         R = min(self.R, len(records), self.c)
         c = self.c - R
         S = min(self.S, max(len(records) - c, 0))
-        H = min(self.H, max(len(records) - (c + S), 0))
-
         records = records[S:]
+
+        H = min(self.H, max(len(records) - c, 0))
         records = sorted(records, key=lambda r: r.hop, reverse=True)
         oldest, records = records[:R], records[R + H:]
+        X = min(self.X, max(len(records) - c, 0))
+        if X:
+            np.random.shuffle(records)
+        records = records[X:] + oldest
         np.random.shuffle(records)
-        records = records[:c] + oldest
+        records = records[:self.c]
 
         node._pull_buffer = []
 
@@ -370,6 +375,7 @@ def init_metrics():
 @click.option("-H", type=int, default=0)
 @click.option("-S", type=int, default=0)
 @click.option("-R", type=int, default=0)
+@click.option("-X", type=int, default=0)
 @click.option("-E", is_flag=True)
 @click.option("-pt", "--partition-tick", type=int)
 @click.option("-ps", "--partition-size", type=float, default=0.5)
@@ -381,7 +387,7 @@ def init_metrics():
               is_flag=True)
 def simulate(ticks: int, repetitions: int, step: int, fanout: int, min_nodes: int,
              max_nodes: int, topology: str, c: int, selection: str, propagation: str,
-             merge: str, h: int, s: int, r: int, e: bool, partition_tick: int,
+             merge: str, h: int, s: int, r: int, x: int, e: bool, partition_tick: int,
              partition_size: float, partition_type: str, influx: bool, folder: str, plot: bool):
     simulation_id = "".join(random.choices(string.ascii_lowercase + string.digits, k=16))
     output_file = os.path.join(folder,
@@ -396,14 +402,14 @@ def simulate(ticks: int, repetitions: int, step: int, fanout: int, min_nodes: in
             global nodes
             run_id = "".join(random.choices(string.
                                             ascii_lowercase + string.digits, k=16))
-            write_info_to_file(run_id, {"H": h, "S": s, "R": r, "c": c}, folder)
+            write_info_to_file(run_id, {"H": h, "S": s, "R": r, "X": x, "c": c}, folder)
 
             nodes = [Node(node_id) for node_id in range(n)]
             clusters = []
             c0 = Cluster(fanout, c,
                          Policy.from_string(selection),
                          Policy.from_string(propagation),
-                         Policy.from_string(merge), h, s, r, e)
+                         Policy.from_string(merge), h, s, r, x, e)
             clusters.append(c0)
             c0.initialize_nodes(nodes)
             c0.initialize_topology(Topology.from_string(topology))
