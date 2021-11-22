@@ -192,21 +192,18 @@ class Cluster:
 
     def simulate_tick(self, i: int):
         for node in self.nodes.values():
-            exchange_amount = 0
-            while exchange_amount < self.fanout and node.neighbors:
-                for record in node.select_neighbors(self.selection, self.fanout):
-                    neighbor = self._to_node(record)
-                    if not neighbor:
-                        if self.E:
-                            node.del_neighbor(record)
-                            self.graph.remove_edge(node.index, record.index)
-                        continue
-                    if self.propagation is Policy.Pushpull:
-                        self._push(node, neighbor)
-                        self._push(neighbor, node)
-                        self._pull(node, neighbor)
-                        self._pull(neighbor, node)
-                    exchange_amount += 1
+            for record in node.select_neighbors(self.selection, self.fanout):
+                neighbor = self._to_node(record)
+                if not neighbor:
+                    if self.E:
+                        node.del_neighbor(record)
+                        self.graph.remove_edge(node.index, record.index)
+                    continue
+                if self.propagation is Policy.Pushpull:
+                    self._push(node, neighbor)
+                    self._push(neighbor, node)
+                    self._pull(node, neighbor)
+                    self._pull(neighbor, node)
 
     def partition(self, nodes: List[Node]) -> "Cluster":
         partition = Cluster(self.fanout, self.c, self.selection,
@@ -377,8 +374,7 @@ def init_metrics():
 @click.option("-R", type=int, default=0)
 @click.option("-X", type=int, default=0)
 @click.option("-E", is_flag=True)
-@click.option("-pt", "--partition-tick", type=int)
-@click.option("-ps", "--partition-size", type=float, default=0.5)
+@click.option("-p", "--partition", multiple=True, type=str)
 @click.option("-ptp", "--partition-type", type=str, default="rand")
 @click.option("--influx", is_flag=True)
 @click.option('-f', '--folder', help="Output folder to store the file to.",
@@ -387,8 +383,8 @@ def init_metrics():
               is_flag=True)
 def simulate(ticks: int, repetitions: int, step: int, fanout: int, min_nodes: int,
              max_nodes: int, topology: str, c: int, selection: str, propagation: str,
-             merge: str, h: int, s: int, r: int, x: int, e: bool, partition_tick: int,
-             partition_size: float, partition_type: str, influx: bool, folder: str, plot: bool):
+             merge: str, h: int, s: int, r: int, x: int, e: bool, partition: List[str], partition_type: str, influx: bool,
+             folder: str, plot: bool):
     simulation_id = "".join(random.choices(string.ascii_lowercase + string.digits, k=16))
     output_file = os.path.join(folder,
                                f"{simulation_id}.partition.pex.sim") if folder else f"{simulation_id}.partition.pex.sim"
@@ -396,7 +392,9 @@ def simulate(ticks: int, repetitions: int, step: int, fanout: int, min_nodes: in
     with open(output_file, "a") as file:
         file.write(f"{min_nodes} {max_nodes} {repetitions} {step}\n")
     init_metrics()
+    partitions = [(int(p.split(":")[0]), float(p.split(":")[1]) )for p in partition]
     partition_type = PartitionType.from_string(partition_type)
+
     for n in range(min_nodes, max_nodes + 1, step):
         for i in range(repetitions):
             global nodes
@@ -417,10 +415,11 @@ def simulate(ticks: int, repetitions: int, step: int, fanout: int, min_nodes: in
             print(f"{n} - Run {run_id} ({i + 1}/{repetitions}) started")
             for tick in range(1, ticks + 1):
                 print(f"N={n}({i + 1}/{repetitions}) - Tick {tick}/{ticks}...")
-                if partition_tick and tick == partition_tick:
-                    partition = partition_type.partition_nodes(list(c0.nodes.values()), partition_size)
-                    clusters.append(c0.partition(partition))
-                    print(f"Partitioned: {clusters}")
+                for partition_tick, partition_size in partitions:
+                    if partition_tick and tick == partition_tick:
+                        partition = partition_type.partition_nodes(list(c0.nodes.values()), partition_size)
+                        clusters.append(c0.partition(partition))
+                        print(f"Partitioned: {clusters}")
                 for c in clusters:
                     c.simulate_tick(tick)
                     if influx:
