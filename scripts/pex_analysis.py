@@ -107,6 +107,7 @@ def calculate(runs: str, ticks: int, cd: bool, pth: bool, cc: bool, rd: bool,
                 g = network_from_files(run, tick, folder)
 
             if not g or g.number_of_nodes() == 0:
+                tick -= 1
                 break
             if cc or all:
                 print(f"({run}) Tick {tick} - Calculating average clustering coefficient")
@@ -135,28 +136,28 @@ def calculate(runs: str, ticks: int, cd: bool, pth: bool, cc: bool, rd: bool,
         for ccs, info in zip(CCs, INFOs):
             plt.plot(ccs, label=info)
         plt.legend()
-        plt.title(f"N={n}, Tick={tick - 1} - Network clustering coefficient")
+        plt.title(f"N={n}, Tick={tick} - Network clustering coefficient")
         plt.show()
     if pth or all:
         for pths, info in zip(PTHs, INFOs):
             plt.plot(pths, label=info)
         plt.legend()
-        plt.title(f"N={n}, Tick={tick - 1} - Network average shortest path length")
+        plt.title(f"N={n}, Tick={tick} - Network average shortest path length")
         plt.show()
     if cd or all:
         for cds, info in zip(CDs, INFOs):
             plt.plot(cds, label=info)
         plt.legend()
-        plt.title(f"N={n}, Tick={tick - 1} - Network average node degree")
+        plt.title(f"N={n}, Tick={tick} - Network average node degree")
         plt.show()
     if rd or all:
         for rds, info in zip(RDs, INFOs):
             plt.plot(rds, label=info)
         plt.legend()
-        plt.title(f"N={n}, Tick={tick - 1} - Network average records")
+        plt.title(f"N={n}, Tick={tick} - Network average records")
         plt.show()
     if pt or all:
-        g = network_from_files(runs[0], tick - 1, folder)
+        g = network_from_files(runs[0], tick, folder)
         partitions = []
         for node in g.nodes:
             p = g.nodes[node]["cluster"]
@@ -175,11 +176,11 @@ def calculate(runs: str, ticks: int, cd: bool, pth: bool, cc: bool, rd: bool,
             plt.plot([n / (partitions[0] * dmax) for n in pt[partition_tick:]], label=info)
         plt.legend()
         plt.title(
-            f"N={n}, Tick={tick - 1}, Partition={(partitions[0]) / g.number_of_nodes()} - Network partition remember time")
+            f"N={n}, Tick={tick}, Partition={(partitions[0]) / g.number_of_nodes()} - Network partition remember time")
         plt.show()
 
     if ptb or all:
-        g = network_from_files(runs[0], tick - 1, folder)
+        g = network_from_files(runs[0], tick, folder)
         partitions = []
         for node in g.nodes:
             p = g.nodes[node]["cluster"]
@@ -205,7 +206,7 @@ def calculate(runs: str, ticks: int, cd: bool, pth: bool, cc: bool, rd: bool,
                 plt.bar(x, y, bottom=bottom, label=label)
         plt.legend()
         plt.title(
-            f"N={n}, Tick={tick - 1}, Partition={(partitions[0]) / g.number_of_nodes()} - Network partition remember time")
+            f"N={n}, Tick={tick}, Partition={(partitions[0]) / g.number_of_nodes()} - Network partition remember time")
         plt.show()
 
 
