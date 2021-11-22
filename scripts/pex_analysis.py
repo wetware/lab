@@ -194,11 +194,15 @@ def calculate(runs: str, ticks: int, cd: bool, pth: bool, cc: bool, rd: bool,
         plt.xlabel("ticks")
 
         for pts, info in zip(PTs, INFOs):
+            x = [i for i in range(1, tick-partition_tick+1)]
+
+            ys = []
             for i, pt in enumerate(pts[1:], start=1):
                 y = [n / (partitions[0] * dmax) if n else np.nan for n in pt[partition_tick:]]
-                x = [i for i in range(1, len(y) + 1)]
+                bottom = [sum(b) for b in zip(*ys)] if ys else None
+                ys.append(y)
                 label = f"Partition {i}"
-                plt.bar(x, y, label=label)
+                plt.bar(x, y, bottom=bottom, label=label)
         plt.legend()
         plt.title(
             f"N={n}, Tick={tick - 1}, Partition={(partitions[0]) / g.number_of_nodes()} - Network partition remember time")

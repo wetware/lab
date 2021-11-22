@@ -303,11 +303,11 @@ class PartitionType(IntEnum):
             return PartitionType.Lineal
         raise ValueError("Invalid partition type name")
 
-    def partition_nodes(self, nodes: List[Node], partition_size: float) -> List[Node]:
+    def partition_nodes(self, nodes: List[Node], partition_size: int) -> List[Node]:
         if self is PartitionType.Rand:
-            return random.sample(nodes, k=int(len(nodes) * partition_size))
+            return random.sample(nodes, k=min(len(nodes), partition_size))
         elif self is PartitionType.Lineal:
-            return nodes[:int(len(nodes) * partition_size)]
+            return nodes[:min(len(nodes), partition_size)]
         raise ValueError("Invalid partition type")
 
 
@@ -392,7 +392,7 @@ def simulate(ticks: int, repetitions: int, step: int, fanout: int, min_nodes: in
     with open(output_file, "a") as file:
         file.write(f"{min_nodes} {max_nodes} {repetitions} {step}\n")
     init_metrics()
-    partitions = [(int(p.split(":")[0]), float(p.split(":")[1]) )for p in partition]
+    partitions = [(int(p.split(":")[0]), int(p.split(":")[1]) )for p in partition]
     partition_type = PartitionType.from_string(partition_type)
 
     for n in range(min_nodes, max_nodes + 1, step):
