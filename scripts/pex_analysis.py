@@ -1,9 +1,11 @@
 import itertools
 import os
+from functools import reduce
 from statistics import mean
 from typing import List
 import matplotlib.pyplot as plt
 import networkx as nx
+import numpy as np
 from influxdb import InfluxDBClient
 import click
 
@@ -70,24 +72,22 @@ def plot(run: str, tick: List[int], dd: bool, pth: bool, cc: bool, mtx: bool, al
 @click.option("-cc", is_flag=True)
 @click.option("-rd", is_flag=True)
 @click.option("-pt", is_flag=True)
+@click.option("-ptb", is_flag=True)
 @click.option("-all", is_flag=True)
 @click.option("--influx", is_flag=True)
 @click.option("-f", "--folder", type=str)
 def calculate(runs: str, ticks: int, cd: bool, pth: bool, cc: bool, rd: bool,
-              pt: bool, all: bool, influx: bool, folder: str):
-    if influx:
-        n = network_from_influx(runs[0], 1).number_of_nodes()
-    else:
-        n = network_from_files(runs[0], 1, folder).number_of_nodes()
+              pt: bool, ptb: bool, all: bool, influx: bool, folder: str):
 
     CCs = [[] for _ in range(len(runs))]
     PTHs = [[] for _ in range(len(runs))]
     CDs = [[] for _ in range(len(runs))]
     RDs = [[] for _ in range(len(runs))]
-    PTs = [[[] for _ in range(2)] for _ in range(len(runs))]
+    PTs = [[] for _ in range(len(runs))]
     INFOs = []
     tick = 0
     for i, run in enumerate(runs):
+        n, partitions_n = size_and_partitions(folder, influx, run, ticks)
         if not influx:
             info = info_from_files(run, folder)
             INFOs.append(info)
@@ -96,6 +96,8 @@ def calculate(runs: str, ticks: int, cd: bool, pth: bool, cc: bool, rd: bool,
         cds = CDs[i]
         rds = RDs[i]
         pts = PTs[i]
+        for _ in range(partitions_n):
+            pts.append([])
 
         for tick in range(1, ticks + 1):
             print(f"({run}) Calculating tick {tick}")
@@ -118,15 +120,16 @@ def calculate(runs: str, ticks: int, cd: bool, pth: bool, cc: bool, rd: bool,
             if rd or all:
                 print(f"({run}) Tick {tick} - Calculating average record degree")
                 rds.append(mean([len(g.in_edges(n)) for n in g.nodes]))
-            if pt or all:
+            if pt or ptb or all:
                 print(f"({run}) Tick {tick} - Calculating partition remember time")
-                dead_links = [0, 0]
+                dead_links = [0 for _ in range(partitions_n)]
                 for node in g.nodes:
                     for e in g.in_edges(node):
-                        if g.nodes[e[0]]["cluster"] != g.nodes[e[1]]["cluster"]:
-                            dead_links[int(g.nodes[node]["cluster"])] += 1
-                pts[0].append(dead_links[0])
-                pts[1].append(dead_links[1])
+                        p1, p2 = g.nodes[e[0]]["cluster"], g.nodes[e[1]]["cluster"]
+                        if p1 == 0 and p2 != 0:
+                            dead_links[p2] += 1
+                for j, n in enumerate(dead_links):
+                    pts[j].append(n)
 
     if cc or all:
         for ccs, info in zip(CCs, INFOs):
@@ -154,32 +157,70 @@ def calculate(runs: str, ticks: int, cd: bool, pth: bool, cc: bool, rd: bool,
         plt.show()
     if pt or all:
         g = network_from_files(runs[0], tick - 1, folder)
-        partitions = [0, 0]
+        partitions = []
         for node in g.nodes:
-            partitions[g.nodes[node]["cluster"]] += 1
+            p = g.nodes[node]["cluster"]
+            while len(partitions) <= p:
+                partitions.append(0)
+            partitions[p] += 1
 
-        partition_tick = next((i for i, x in enumerate(PTs[0][0]) if x), None)
+        partition_tick = next((i for i, x in enumerate(PTs[0][1]) if x), None)
         dmax = max(sorted([d for n, d in g.out_degree()], reverse=True))
 
         plt.ylabel("proportion of deadlinks")
         plt.xlabel("ticks")
 
         for pts, info in zip(PTs, INFOs):
-            plt.plot([n / (partitions[0] * dmax) for n in pts[0][partition_tick:]], label=info)
+            pt = [sum(links) for links in zip(*pts)]
+            plt.plot([n / (partitions[0] * dmax) for n in pt[partition_tick:]], label=info)
         plt.legend()
         plt.title(
             f"N={n}, Tick={tick - 1}, Partition={(partitions[0]) / g.number_of_nodes()} - Network partition remember time")
         plt.show()
 
+    if ptb or all:
+        g = network_from_files(runs[0], tick - 1, folder)
+        partitions = []
+        for node in g.nodes:
+            p = g.nodes[node]["cluster"]
+            while len(partitions) <= p:
+                partitions.append(0)
+            partitions[p] += 1
+
+        partition_tick = next((i for i, x in enumerate(PTs[0][1]) if x), None)
+        dmax = max(sorted([d for n, d in g.out_degree()], reverse=True))
+
+        plt.ylabel("proportion of deadlinks")
+        plt.xlabel("ticks")
+
         for pts, info in zip(PTs, INFOs):
-            plt.plot([n / (partitions[1] * dmax) for n in pts[1][partition_tick:]], label=info)
+            for i, pt in enumerate(pts[1:], start=1):
+                y = [n / (partitions[0] * dmax) if n else np.nan for n in pt[partition_tick:]]
+                x = [i for i in range(1, len(y) + 1)]
+                label = f"Partition {i}"
+                plt.bar(x, y, label=label)
         plt.legend()
         plt.title(
-            f"N={n}, Tick={tick - 1}, Partition={(partitions[1]) / g.number_of_nodes()} - Network partition remember time")
+            f"N={n}, Tick={tick - 1}, Partition={(partitions[0]) / g.number_of_nodes()} - Network partition remember time")
         plt.show()
 
 
-
+def size_and_partitions(folder, influx, run, ticks):
+    if influx:
+        g = None
+        t = ticks
+        while not g:
+            g = network_from_influx(run, t)
+            t -= 1
+    else:
+        g = None
+        t = ticks
+        while not g:
+            g = network_from_files(run, t, folder)
+            t -= 1
+    n = g.number_of_nodes()
+    partitions_n = len(set(nx.get_node_attributes(g, "cluster").values()))
+    return n, partitions_n
 
 
 def network_from_influx(run: str, tick: int) -> nx.DiGraph:
