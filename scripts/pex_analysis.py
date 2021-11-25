@@ -32,16 +32,20 @@ def cli3():
 @click.option("-pth", is_flag=True)
 @click.option("-cc", is_flag=True)
 @click.option("-mtx", is_flag=True)
+@click.option("-pt", is_flag=True)
 @click.option("-all", is_flag=True)
+@click.option("-r", "--repetitions", type=int, default=2)
 @click.option("--influx", is_flag=True)
 @click.option("-f", "--folder", type=str)
-def plot(run: str, tick: List[int], dd: bool, pth: bool, cc: bool, mtx: bool, all: bool,
-         influx: bool, folder: str):
+def plot(run: str, tick: List[int], dd: bool, pth: bool, cc: bool, mtx: bool,
+         pt: bool, all: bool, repetitions: int, influx: bool, folder: str):
     for i, t in enumerate(tick):
         if influx:
             graph = network_from_influx(run, t)
+            info = None
         else:
             graph = network_from_files(run, t, folder)
+            info = info_from_files(run, folder)
         if dd or all:
             degrees = [graph.degree(n) for n in graph.nodes()]
             plt.hist(degrees)
@@ -62,6 +66,27 @@ def plot(run: str, tick: List[int], dd: bool, pth: bool, cc: bool, mtx: bool, al
             plt.matshow(matrix, cmap=plt.cm.Blues, fignum=i)
             plt.title(f"N={graph.number_of_nodes()}, Tick={t} - Adjacency matrix")
             plt.show()
+        if pt or all:
+            y = []
+            for p in range(1, 100):
+                print(f"Calculating if there is partition evicting {p}% of the nodes")
+                avgs = []
+                for _ in range(repetitions):
+                    g2 = graph.to_undirected()
+                    evict_nodes = np.random.choice(g2.nodes, int(g2.number_of_nodes() * (p / 100)), replace=False)
+                    g2.remove_nodes_from(evict_nodes)
+                    partition_lens = [len(c) for c in sorted(nx.connected_components(g2), key=len, reverse=True)]
+                    if len(partition_lens) > 1:
+                        avgs.append(sum(partition_lens[1:]) / graph.number_of_nodes())
+                    else:
+                        avgs.append(0)
+                y.append(mean(avgs))
+            plt.ylabel("Proportion of nodes outside of largest cluster")
+            plt.xlabel("Evicted % of nodes")
+            plt.plot(y, label=info)
+            plt.legend()
+            plt.xticks([step for step in range(0, 105, 5)])
+            plt.show()
 
 
 @cli2.command()
@@ -78,7 +103,6 @@ def plot(run: str, tick: List[int], dd: bool, pth: bool, cc: bool, mtx: bool, al
 @click.option("-f", "--folder", type=str)
 def calculate(runs: str, ticks: int, cd: bool, pth: bool, cc: bool, rd: bool,
               pt: bool, ptb: bool, all: bool, influx: bool, folder: str):
-
     CCs = [[] for _ in range(len(runs))]
     PTHs = [[] for _ in range(len(runs))]
     CDs = [[] for _ in range(len(runs))]
@@ -129,8 +153,8 @@ def calculate(runs: str, ticks: int, cd: bool, pth: bool, cc: bool, rd: bool,
                         p1, p2 = g.nodes[e[0]]["cluster"], g.nodes[e[1]]["cluster"]
                         if p1 == 0 and p2 != 0:
                             dead_links[p2] += 1
-                for j, n in enumerate(dead_links):
-                    pts[j].append(n)
+                for j, deadlink in enumerate(dead_links):
+                    pts[j].append(deadlink)
 
     if cc or all:
         for ccs, info in zip(CCs, INFOs):
@@ -166,14 +190,14 @@ def calculate(runs: str, ticks: int, cd: bool, pth: bool, cc: bool, rd: bool,
             partitions[p] += 1
 
         partition_tick = next((i for i, x in enumerate(PTs[0][1]) if x), None)
-        dmax = max(sorted([d for n, d in g.out_degree()], reverse=True))
+        dmax = max(sorted([d for _, d in g.out_degree()], reverse=True))
 
         plt.ylabel("proportion of deadlinks")
         plt.xlabel("ticks")
 
         for pts, info in zip(PTs, INFOs):
             pt = [sum(links) for links in zip(*pts)]
-            plt.plot([n / (partitions[0] * dmax) for n in pt[partition_tick:]], label=info)
+            plt.plot([deadlinks_n / (partitions[0] * dmax) for deadlinks_n in pt[partition_tick:]], label=info)
         plt.legend()
         plt.title(
             f"N={n}, Tick={tick}, Partition={(partitions[0]) / g.number_of_nodes()} - Network partition remember time")
@@ -189,20 +213,20 @@ def calculate(runs: str, ticks: int, cd: bool, pth: bool, cc: bool, rd: bool,
             partitions[p] += 1
 
         partition_tick = next((i for i, x in enumerate(PTs[0][1]) if x), None)
-        dmax = max(sorted([d for n, d in g.out_degree()], reverse=True))
+        dmax = max(sorted([d for _, d in g.out_degree()], reverse=True))
 
         plt.ylabel("proportion of deadlinks")
         plt.xlabel("ticks")
 
         for pts, info in zip(PTs, INFOs):
-            x = [i for i in range(1, tick-partition_tick+1)]
+            x = [i for i in range(1, tick - partition_tick + 1)]
 
             ys = []
             for i, pt in enumerate(pts[1:], start=1):
-                y = [n / (partitions[0] * dmax) if n else np.nan for n in pt[partition_tick:]]
-                bottom = [sum(b) for b in zip(*ys)] if ys else None
+                y = [deadlinks_n / (partitions[0] * dmax) for deadlinks_n in pt[partition_tick:]]
+                bottom = [sum(bottom) for bottom in zip(*ys)] if ys else None
                 ys.append(y)
-                label = f"Partition {i}"
+                label = f"Partition {i}. {info}"
                 plt.bar(x, y, bottom=bottom, label=label)
         plt.legend()
         plt.title(
