@@ -8,14 +8,17 @@ from enum import IntEnum, auto
 from typing import List, Dict
 
 import click
+import simpy
 from influxdb import InfluxDBClient
 
 nodes: List["Node"] = []
+env = simpy.Environment()
 
 
 class Topology(IntEnum):
     RING = auto()
     RAND = auto()
+    INTERNET = auto()
 
     @staticmethod
     def from_string(name: str):
@@ -71,8 +74,8 @@ class Node:
     def __init__(self, index: int):
         self.index: int = index
         self.neighbors: List[Record] = []
-        self._pull_buffer: List[Record] = []
-        self._cluster: Cluster = None
+        self.on = True
+        self.cluster: Cluster = None
 
     def __str__(self):
         return f"Node<{self.index}>"
@@ -89,7 +92,7 @@ class Node:
         return nodes[record.index]
 
     def set_cluster(self, cluster: "Cluster"):
-        self._cluster = cluster
+        self.cluster = cluster
 
     def select_neighbors(self, fanout: int):
         return random.sample(self.neighbors, k=fanout)
@@ -105,10 +108,13 @@ class Cluster:
         self.R = R
         self.D = X
         self.overlay = nx.DiGraph()
+        self.underlay = None
         self.nodes: Dict[int, Node] = {}
         self.tick = 0
         self.id = Cluster.next_id
         Cluster.next_id += 1
+
+        self.on = True
 
     def initialize_nodes(self, nodes: List[Node]):
         for node in nodes:
@@ -130,6 +136,13 @@ class Cluster:
                     node.neighbors.append(record)
                     self.overlay.add_edge(node.index, neighbor.index)
 
+    def initialize_underlay(self, topology: Topology, distance_delay: float):
+        self.underlay = nx.random_internet_as_graph(len(self.nodes))
+        self._delays = {}
+        for node, lengths in nx.all_pairs_shortest_path_length(self.underlay):
+            for src in lengths:
+                lengths[src] *= distance_delay
+            self._delays[node] = lengths
 
     def partition(self, nodes: List[Node]) -> "Cluster":
         partition = Cluster(self.fanout, self.c, self.S, self.R,
@@ -140,18 +153,23 @@ class Cluster:
             self.nodes.pop(node.index)
         return partition
 
-    def simulate_tick(self, i: int):
-        for node in self.nodes.values():
+    def simulate_node(self, node: Node, sleep: float):
+        while node.cluster.on:
+            yield env.timeout(sleep)
             for record in node.select_neighbors(self.fanout):
                 neighbor = Node.from_record(record)
                 if not neighbor:
                     continue
                 # Pushpull
-                self._push(node, neighbor)
-                self._push(neighbor, node)
-                self._pull(node, neighbor)
-                self._pull(neighbor, node)
-        self.tick += 1
+                env.process(self._pushpull(node, neighbor))
+
+    def _pushpull(self, node: Node, neighbor: Node):
+        records = self._push(node, neighbor)
+        yield env.timeout(self._delays[node.index][neighbor.index])
+        self._pull(neighbor, records)
+        records = self._push(neighbor, node)
+        yield env.timeout(self._delays[neighbor.index][node.index])
+        self._pull(node, records)
 
     def _push(self, node: Node, neighbor: Node):
         sorted_records = sorted(node.neighbors, key=lambda r: r.hop, reverse=True)
@@ -160,11 +178,12 @@ class Cluster:
         np.random.shuffle(youngest)
         node.neighbors = youngest + oldest
         c = min(self.c // 2, len(node.neighbors))
-        neighbor._pull_buffer = [n.copy() for n in node.neighbors[:c]]
-        neighbor._pull_buffer.append(node.record)
+        buffer = [n.copy() for n in node.neighbors[:c]]
+        buffer.append(node.record)
+        return buffer
 
-    def _pull(self, node: Node, neighbor: Node):
-        records = self._merge_records(node)
+    def _pull(self, node: Node, records: List[Record]):
+        records = self._merge_records(node, records)
         S = min(self.S, max(len(records) - self.c, 0))
         records = records[S:]
 
@@ -191,16 +210,16 @@ class Cluster:
         for neighbor in node.neighbors:
             neighbor.hop += 1
 
-    def _merge_records(self, node: Node) -> List[Record]:
+    def _merge_records(self, node: Node, pull_records: List[Record]) -> List[Record]:
         buffer: List[Record] = []
-        pull_set = dict((r.index, r) for r in node._pull_buffer)
+        pull_set = dict((r.index, r) for r in pull_records)
         for r1 in node.neighbors:
             r2 = pull_set.get(r1.index, None)
             if not r2 or r1.hop <= r2.hop:
                 buffer.append(r1)
 
         buffer_set = dict((r.index, r) for r in buffer)
-        for r1 in node._pull_buffer:
+        for r1 in pull_records:
             r2 = buffer_set.get(r1.index, None)
             if r1.index != node.index and not r2:
                 buffer.append(r1)
@@ -262,7 +281,7 @@ def write_to_influx(cluster: Cluster, run_id: str, tick: int):
                 "records": "-".join(map(lambda r: str(r.index), node.neighbors)),
                 "tick": tick,
                 "run": run_id,
-                "cluster": node._cluster.id
+                "cluster": node.cluster.id
             },
             "time": datetime.utcnow().strftime('%Y-%m-%dT%H:%M:%SZ'),
             "fields": {
@@ -301,13 +320,16 @@ def write_to_file(cluster: Cluster, run_id: str, tick: int, folder: str):
 @click.option("-S", type=int, default=0)
 @click.option("-R", type=int, default=0)
 @click.option("-D", type=float, default=0.5)
+@click.option("-dd", "--distance-delay", type=float, default=0.1)
+@click.option("-sl", "--sleep", type=float, default=1)
 @click.option("-p", "--partition", multiple=True, type=str)
+@click.option("-sp", "--simulate-partition", is_flag=True)
 @click.option("--influx", is_flag=True)
 @click.option('-f', '--folder', help="Output folder to store the file to.",
               type=str)
 def simulate(ticks: int, repetitions: int, nodes_amount: int, fanout: int,
-             c: int, s: int, r: int, d: float, partition: List[str],
-            influx: bool, folder: str):
+             c: int, s: int, r: int, d: float, distance_delay: float, sleep: float,
+             partition: List[str], simulate_partition: bool, influx: bool, folder: str):
     simulation_id = "".join(random.choices(string.ascii_lowercase + string.digits, k=16))
     output_file = os.path.join(folder,
                                f"{simulation_id}.partition.pex.sim") if folder else f"{simulation_id}.partition.pex.sim"
@@ -326,24 +348,34 @@ def simulate(ticks: int, repetitions: int, nodes_amount: int, fanout: int,
         nodes = [Node(node_id) for node_id in range(nodes_amount)]
         c0.initialize_nodes(nodes)
         c0.initialize_overlay(Topology.RING)
+        c0.initialize_underlay(Topology.INTERNET, distance_delay)
 
-        print(f"{nodes_amount} - Run {run_id} ({rep + 1}/{repetitions}) started")
-        for tick in range(1, ticks + 1):
-            print(f"N={nodes_amount}({rep + 1}/{repetitions}) - Tick {tick}/{ticks}...")
-            for partition_tick, partition_size in partitions:
-                if partition_tick and tick == partition_tick:
-                    pnodes = partition_nodes(partition_type, list(c0.nodes.values()), partition_size)
-                    c0.partition(pnodes)
-                    print(f"Partitioned: {c0}")
+        for node in nodes:
+            env.process(c0.simulate_node(node, sleep))
 
-            c0.simulate_tick(tick)
-            if influx:
-                write_to_influx(c0, run_id, tick)
-            if not influx:
-                write_to_file(c0, run_id, tick, folder)
-        print(f"{nodes_amount} - Run {run_id} ({rep + 1}/{repetitions}) finished - {c0}")
-        with open(output_file, "a") as file:
-            file.write(f"{os.path.join(folder, run_id)}\n")
+        def manage_simulation():
+            print(f"{nodes_amount} - Run {run_id} ({rep + 1}/{repetitions}) started")
+            for tick in range(1, ticks + 1):
+                yield env.timeout(sleep)
+                print(f"N={nodes_amount}({rep + 1}/{repetitions}) - Tick {tick}/{ticks}...")
+                for partition_tick, partition_size in partitions:
+                    if partition_tick and tick == partition_tick:
+                        pnodes = partition_nodes(partition_type, list(c0.nodes.values()), partition_size)
+                        c = c0.partition(pnodes)
+                        c.on = False
+                        print(f"Partitioned: {c0}")
+
+                if influx:
+                    write_to_influx(c0, run_id, tick)
+                else:
+                    write_to_file(c0, run_id, tick, folder)
+            print(f"{nodes_amount} - Run {run_id} ({rep + 1}/{repetitions}) finished - {c0}")
+            with open(output_file, "a") as file:
+                file.write(f"{os.path.join(folder, run_id)}\n")
+            c0.on = False
+
+        env.process(manage_simulation())
+        env.run()
     print(f"Results stored at {output_file}")
 
 

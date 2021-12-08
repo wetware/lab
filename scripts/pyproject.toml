@@ -13,6 +13,9 @@ matplotlib = "^3.4.3"
 influxdb = "5.3.1"
 networkx = "^2.6.3"
 scipy = "^1.7.2"
+fnss = "^0.9.1"
+trio = "^0.19.0"
+simpy = "^4.0.1"
 
 [tool.poetry.dev-dependencies]
 ipython = {extras = ["all"], version = "^7.29.0"}

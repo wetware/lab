@@ -1,6 +1,4 @@
-import itertools
 import os
-from functools import reduce
 from statistics import mean
 from typing import List
 import matplotlib.pyplot as plt
@@ -108,6 +106,7 @@ def calculate(runs: str, ticks: int, cd: bool, pth: bool, cc: bool, rd: bool,
     CDs = [[] for _ in range(len(runs))]
     RDs = [[] for _ in range(len(runs))]
     PTs = [[] for _ in range(len(runs))]
+    Ns = [[] for _ in range(len(runs))]
     INFOs = []
     tick = 0
     for i, run in enumerate(runs):
@@ -120,6 +119,7 @@ def calculate(runs: str, ticks: int, cd: bool, pth: bool, cc: bool, rd: bool,
         cds = CDs[i]
         rds = RDs[i]
         pts = PTs[i]
+        ns = Ns[i]
         for _ in range(partitions_n):
             pts.append([])
 
@@ -147,14 +147,18 @@ def calculate(runs: str, ticks: int, cd: bool, pth: bool, cc: bool, rd: bool,
                 rds.append(mean([len(g.in_edges(n)) for n in g.nodes]))
             if pt or ptb or all:
                 print(f"({run}) Tick {tick} - Calculating partition remember time")
+                N = 0
                 dead_links = [0 for _ in range(partitions_n)]
-                for node in g.nodes:
+                for node, data in g.nodes(data=True):
                     for e in g.in_edges(node):
                         p1, p2 = g.nodes[e[0]]["cluster"], g.nodes[e[1]]["cluster"]
                         if p1 == 0 and p2 != 0:
                             dead_links[p2] += 1
+                    if data["cluster"] == 0:
+                        N += 1
                 for j, deadlink in enumerate(dead_links):
                     pts[j].append(deadlink)
+                ns.append(N)
 
     if cc or all:
         for ccs, info in zip(CCs, INFOs):
@@ -218,12 +222,15 @@ def calculate(runs: str, ticks: int, cd: bool, pth: bool, cc: bool, rd: bool,
         plt.ylabel("proportion of deadlinks")
         plt.xlabel("ticks")
 
+        pi = 0
         for pts, info in zip(PTs, INFOs):
             x = [i for i in range(1, tick - partition_tick + 1)]
 
             ys = []
+            ns = Ns[pi]
+            pi += 1
             for i, pt in enumerate(pts[1:], start=1):
-                y = [deadlinks_n / (partitions[0] * dmax) for deadlinks_n in pt[partition_tick:]]
+                y = [deadlinks_n / (ns[di] * dmax) for di, deadlinks_n in enumerate(pt[partition_tick:], start=partition_tick)]
                 bottom = [sum(bottom) for bottom in zip(*ys)] if ys else None
                 ys.append(y)
                 label = f"Partition {i}. {info}"
