@@ -1,6 +1,3 @@
-// Welcome, testground plan writer!
-// If you are seeing this for the first time, check out our documentation!
-// https://app.gitbook.com/@protocol-labs/s/testground/
 
 package main
 
@@ -13,6 +10,7 @@ import (
 func main() {
 	run.InvokeMap(map[string]interface{}{
 		"pex-convergence": pex.RunConvergence,
+		"pex-convergence-matrix": pex.RunConvergenceMatrix,
 		"dns-test": pex.RunDnsTest,
 	})
 }
