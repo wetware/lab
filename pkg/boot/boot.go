@@ -2,6 +2,7 @@ package boot
 
 import (
 	"context"
+	"github.com/libp2p/go-libp2p-core/host"
 	"sync"
 	"time"
 
@@ -16,6 +17,7 @@ type RedisDiscovery struct {
 	ClusterSize int
 	C           tsync.Client
 	Local       *peer.AddrInfo
+	I int
 
 	once sync.Once
 	Topo Topology
@@ -85,4 +87,34 @@ func (r *RedisDiscovery) syncRedis(ctx context.Context, ns string) (as boot.Stat
 		}
 	}
 
+}
+
+
+type MemoryDiscovery struct {
+	Local       *peer.AddrInfo
+	I int
+	Hosts []host.Host
+
+	Topo Topology
+	once sync.Once
+
+	Sa boot.StaticAddrs
+}
+
+func (m *MemoryDiscovery) Advertise(ctx context.Context, ns string, opt ...discovery.Option) (_ time.Duration, err error) {
+	opts := discovery.Options{Ttl: peerstore.PermanentAddrTTL}
+	if err = opts.Apply(opt...); err != nil {
+		return
+	}
+	return opts.Ttl, err
+}
+
+func (m *MemoryDiscovery) FindPeers(ctx context.Context, ns string, opt ...discovery.Option) (<-chan peer.AddrInfo, error) {
+	m.once.Do(func() {
+		if m.Topo == nil {
+			m.Topo = Ring{m.Local.ID}
+		}
+		m.Sa = append(boot.StaticAddrs{}, m.Sa...)  // make a copy
+	})
+	return m.Topo.GetNeighbors(m.Sa).FindPeers(ctx, ns, opt...)
 }

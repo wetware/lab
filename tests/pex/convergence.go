@@ -25,7 +25,7 @@ import (
 func RunConvergence(env *runtime.RunEnv, initCtx *run.InitContext) error {
 	var (
 		tick           = time.Millisecond * time.Duration(env.IntParam("tick")) // tick in miliseconds
-		convTickAmount = env.IntParam("convTickAmount")
+		tickAmount = env.IntParam("tickAmount")
 	)
 
 	ctx, cancel := context.WithCancel(context.Background())
@@ -40,7 +40,8 @@ func RunConvergence(env *runtime.RunEnv, initCtx *run.InitContext) error {
 	if err != nil {
 		return err
 	}
-	go viewMetricsLoop(ctx, env, h, sub)
+	gossip := pex.GossipParams{10, -1, -1, -1}
+	go viewMetricsLoop(ctx, env, h, sub, &gossip)
 
 	d := &boot.RedisDiscovery{
 		ClusterSize: env.TestInstanceCount,
@@ -50,6 +51,7 @@ func RunConvergence(env *runtime.RunEnv, initCtx *run.InitContext) error {
 	
 
 	px, err := pex.New(ctx, h,
+		pex.WithGossipParams(gossip),
 		pex.WithDiscovery(d),
 		pex.WithTick(tick), // speed up the simulation
 		pex.WithLogger(zaputil.Wrap(env.SLogger())))
@@ -61,9 +63,9 @@ func RunConvergence(env *runtime.RunEnv, initCtx *run.InitContext) error {
 	// is provided to a 'PubSub' instance, this method will be called in
 	// a loop with the interval specified by the TTL return value.
 	initCtx.SyncClient.MustSignalAndWait(ctx, tsync.State("initialized"), env.TestInstanceCount)
-	for i := 0; i < convTickAmount; i++ {
+	for i := 0; i < tickAmount; i++ {
 		if initCtx.GlobalSeq == 1{
-			fmt.Printf("Tick %v/%v\n", i+1, convTickAmount)
+			fmt.Printf("Tick %v/%v\n", i+1, tickAmount)
 		}
 		ttl, err := px.Advertise(ctx, ns)
 		if err != nil && !strings.Contains(err.Error(), "stream reset") &&

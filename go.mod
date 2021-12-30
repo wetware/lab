@@ -3,17 +3,21 @@ module github.com/wetware/lab
 go 1.17
 
 require (
+	github.com/influxdata/influxdb-client-go/v2 v2.6.0
 	github.com/libp2p/go-libp2p v0.15.0
 	github.com/libp2p/go-libp2p-core v0.9.0
 	github.com/lthibault/log v1.2.1
 	github.com/stretchr/testify v1.7.0
 	github.com/testground/sdk-go v0.2.7
-	github.com/wetware/casm v0.0.0-20211105092148-4d79bfa15357
+	github.com/wetware/casm v0.0.0-20211230103138-f44a18e8d75d
+	github.com/wetware/matrix v1.0.0-alpha.17
 	go.uber.org/zap v1.19.1
+	golang.org/x/sync v0.0.0-20210220032951-036812b2e83c
 )
 
 require (
 	capnproto.org/go/capnp/v3 v3.0.0-alpha.1 // indirect
+	github.com/antlabs/stl v0.0.1 // indirect
 	github.com/avast/retry-go v2.6.0+incompatible // indirect
 	github.com/beorn7/perks v1.0.1 // indirect
 	github.com/btcsuite/btcd v0.22.0-beta // indirect
@@ -21,6 +25,7 @@ require (
 	github.com/coreos/go-semver v0.3.0 // indirect
 	github.com/davecgh/go-spew v1.1.1 // indirect
 	github.com/davidlazar/go-crypto v0.0.0-20200604182044-b73af7476f6c // indirect
+	github.com/deepmap/oapi-codegen v1.8.2 // indirect
 	github.com/dustin/go-humanize v1.0.0 // indirect
 	github.com/flynn/noise v1.0.0 // indirect
 	github.com/go-redis/redis/v7 v7.4.0 // indirect
@@ -34,6 +39,7 @@ require (
 	github.com/hashicorp/golang-lru v0.5.4 // indirect
 	github.com/huin/goupnp v1.0.2 // indirect
 	github.com/influxdata/influxdb1-client v0.0.0-20200515024757-02f0bf5dbca3 // indirect
+	github.com/influxdata/line-protocol v0.0.0-20200327222509-2487e7298839 // indirect
 	github.com/ipfs/go-cid v0.1.0 // indirect
 	github.com/ipfs/go-datastore v0.4.6 // indirect
 	github.com/ipfs/go-ipfs-util v0.0.2 // indirect
@@ -76,8 +82,8 @@ require (
 	github.com/libp2p/go-tcp-transport v0.2.8 // indirect
 	github.com/libp2p/go-ws-transport v0.5.0 // indirect
 	github.com/libp2p/go-yamux/v2 v2.2.0 // indirect
-	github.com/lthibault/jitterbug/v2 v2.2.2 // indirect
-	github.com/lthibault/util v0.0.10 // indirect
+	github.com/lthibault/go-libp2p-inproc-transport v0.0.1-alpha.7 // indirect
+	github.com/lthibault/util v0.0.11 // indirect
 	github.com/marten-seemann/tcp v0.0.0-20210406111302-dfbc87cc63fd // indirect
 	github.com/mattn/go-isatty v0.0.14 // indirect
 	github.com/matttproud/golang_protobuf_extensions v1.0.1 // indirect
@@ -113,8 +119,8 @@ require (
 	go.uber.org/multierr v1.7.0 // indirect
 	golang.org/x/crypto v0.0.0-20210817164053-32db794688a5 // indirect
 	golang.org/x/net v0.0.0-20210908191846-a5e095526f91 // indirect
-	golang.org/x/sync v0.0.0-20210220032951-036812b2e83c // indirect
 	golang.org/x/sys v0.0.0-20210909193231-528a39cd75f3 // indirect
 	google.golang.org/protobuf v1.27.1 // indirect
+	gopkg.in/yaml.v2 v2.4.0 // indirect
 	gopkg.in/yaml.v3 v3.0.0-20210107192922-496545a6307b // indirect
 )

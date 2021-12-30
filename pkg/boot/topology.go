@@ -13,26 +13,26 @@ type Topology interface {
 
 type Ring struct{ ID peer.ID }
 
-func (r Ring) GetNeighbors(as boot.StaticAddrs) boot.StaticAddrs {
-	if len(as) < 2 {
-		return as
+func (r Ring) GetNeighbors(sa boot.StaticAddrs) boot.StaticAddrs {
+	if len(sa) < 2 {
+		return sa
 	}
 
-	sort.Sort(as)
+	sort.Sort(sa)
 
 	// Defensively range over the values instead of a 'while' loop,
 	// in case the target ID is not contained in the slice.  This
 	// should never happen, but you never know...
-	for range as {
-		if as[0].ID == r.ID {
+	for range sa {
+		if sa[0].ID == r.ID {
 			break
 		}
 
-		as = rotateLeft(as)
+		sa = rotateLeft(sa)
 	}
 
 	// use filter instead of indexing in case len(as) == 0
-	return as.Filter(func(info peer.AddrInfo) bool {
+	return sa.Filter(func(info peer.AddrInfo) bool {
 		return info.ID != r.ID
 	})[:2]
 }
