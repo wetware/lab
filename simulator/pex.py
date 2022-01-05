@@ -91,22 +91,25 @@ class Node:
     def set_cluster(self, cluster: "Cluster"):
         self._cluster = cluster
 
-    def select_neighbors(self, fanout: int):
+    def select_neighbors_rand(self, fanout: int):
         return random.sample(self.neighbors, k=fanout)
 
+    def select_neighbors_tail(self, fanout: int):
+        return sorted(self.neighbors, key= lambda r: r.hop, reverse=True)[:fanout]
 
 class Cluster:
     next_id = 0
 
-    def __init__(self, fanout: int, c: int, S: int, R: int, X: float):
+    def __init__(self, fanout: int, c: int, S: int, P: int, X: float, tail: bool):
         self.fanout = fanout
         self.c = c
         self.S = S
-        self.R = R
+        self.P = P
         self.D = X
         self.overlay = nx.DiGraph()
         self.nodes: Dict[int, Node] = {}
         self.tick = 0
+        self.tail = tail
         self.id = Cluster.next_id
         Cluster.next_id += 1
 
@@ -132,8 +135,8 @@ class Cluster:
 
 
     def partition(self, nodes: List[Node]) -> "Cluster":
-        partition = Cluster(self.fanout, self.c, self.S, self.R,
-                            self.D)
+        partition = Cluster(self.fanout, self.c, self.S, self.P,
+                            self.D, self.tail)
         partition.overlay = self.overlay
         partition.initialize_nodes(nodes)
         for node in nodes:
@@ -142,7 +145,9 @@ class Cluster:
 
     def simulate_tick(self, i: int):
         for node in self.nodes.values():
-            for record in node.select_neighbors(self.fanout):
+            neighbor_records = node.select_neighbors_tail(self.fanout) if self.tail else node.select_neighbors_rand(
+                self.fanout)
+            for record in neighbor_records:
                 neighbor = Node.from_record(record)
                 if not neighbor:
                     continue
@@ -155,11 +160,11 @@ class Cluster:
 
     def _push(self, node: Node, neighbor: Node):
         sorted_records = sorted(node.neighbors, key=lambda r: r.hop, reverse=True)
-        R = min(self.R, len(sorted_records))
-        youngest, oldest = sorted_records[R:], sorted_records[:R]
+        P = min(self.P, len(sorted_records))
+        youngest, oldest = sorted_records[P:], sorted_records[:P]
         np.random.shuffle(youngest)
         node.neighbors = youngest + oldest
-        c = min(self.c // 2, len(node.neighbors))
+        c = min((self.c // 2) - 1, len(node.neighbors))
         neighbor._pull_buffer = [n.copy() for n in node.neighbors[:c]]
         neighbor._pull_buffer.append(node.record)
 
@@ -168,12 +173,11 @@ class Cluster:
         S = min(self.S, max(len(records) - self.c, 0))
         records = records[S:]
 
-        R = min(self.R, len(records), self.c)
+        P = min(self.P, len(records), self.c)
 
         records = sorted(records, key=lambda r: r.hop, reverse=True)
-        oldest, records = records[:R], records[R:]
+        oldest, records = records[:P], records[P:]
         np.random.shuffle(records)
-        np.random.shuffle(oldest)
         while len(oldest) + len(records) > self.c and oldest and random.random() < self.D:
             oldest = oldest[1:]
         c = self.c - len(oldest)
@@ -299,15 +303,16 @@ def write_to_file(cluster: Cluster, run_id: str, tick: int, folder: str):
 @click.option("-f", "--fanout", type=int, default=1)
 @click.option("-c", type=int, default=32)
 @click.option("-S", type=int, default=0)
-@click.option("-R", type=int, default=0)
+@click.option("-P", type=int, default=0)
 @click.option("-D", type=float, default=0.5)
+@click.option("-T", "--tail", is_flag=True)
 @click.option("-p", "--partition", multiple=True, type=str)
 @click.option("--influx", is_flag=True)
 @click.option('-f', '--folder', help="Output folder to store the file to.",
               type=str)
 def simulate(ticks: int, repetitions: int, nodes_amount: int, fanout: int,
-             c: int, s: int, r: int, d: float, partition: List[str],
-            influx: bool, folder: str):
+             c: int, s: int, p: int, d: float, tail: bool, partition: List[str],
+             influx: bool, folder: str):
     simulation_id = "".join(random.choices(string.ascii_lowercase + string.digits, k=16))
     output_file = os.path.join(folder,
                                f"{simulation_id}.partition.pex.sim") if folder else f"{simulation_id}.partition.pex.sim"
@@ -320,9 +325,9 @@ def simulate(ticks: int, repetitions: int, nodes_amount: int, fanout: int,
         global nodes
         run_id = "".join(random.choices(string.
                                         ascii_lowercase + string.digits, k=16))
-        write_info_to_file(run_id, {"S": s, "R": r, "D": d, "c": c}, folder)
+        write_info_to_file(run_id, {"S": s, "P": p, "D": d, "c": c, "tail": tail}, folder)
 
-        c0 = Cluster(fanout, c, s, r, d)
+        c0 = Cluster(fanout, c, s, p, d, tail)
         nodes = [Node(node_id) for node_id in range(nodes_amount)]
         c0.initialize_nodes(nodes)
         c0.initialize_overlay(Topology.RING)

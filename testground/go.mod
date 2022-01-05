@@ -1,4 +1,4 @@
-module github.com/wetware/lab
+module github.com/wetware/lab/testground
 
 go 1.17
 
@@ -9,7 +9,7 @@ require (
 	github.com/lthibault/log v1.2.1
 	github.com/stretchr/testify v1.7.0
 	github.com/testground/sdk-go v0.2.7
-	github.com/wetware/casm v0.0.0-20211230103138-f44a18e8d75d
+	github.com/wetware/casm v0.0.0-20220104005526-d74f0be43166
 	github.com/wetware/matrix v1.0.0-alpha.17
 	go.uber.org/zap v1.19.1
 	golang.org/x/sync v0.0.0-20210220032951-036812b2e83c

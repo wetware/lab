@@ -25,28 +25,14 @@ enabled = true
 enabled = true
 
 [[testcases]]
-name= "pex-convergence"
+name= "pex"
 instances = { min = 2, max = 64, default = 2 }
-    [testcases.params]
-    tick = {type="int", default = 100}
-    tickAmount = {type="int", default = 100}
-
-[[testcases]]
-name= "pex-convergence-matrix"
-instances = { min = 1, max = 1, default = 1 }
     [testcases.params]
     tick = {type="int", default = 100}
     tickAmount = {type="int", default = 100}
     nodesAmount = {type="int", default = 100}
     c = {type="int", default = 30}
     s = {type="int", default = 10}
-    r = {type="int", default = 5}
+    p = {type="int", default = 5}
     d = {type="float", default = 0.005}
     partitionTick = {type="int", default = -1}
-
-[[testcases]]
-name= "dns-test"
-instances = { min = 2, max = 1000, default = 2 }
-    [testcases.params]
-    tick = {type="int", default = 100}
-    tickAmount = {type="int", default = 100}

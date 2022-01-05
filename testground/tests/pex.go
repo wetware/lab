@@ -1,5 +1,4 @@
-package pex
-
+package tests
 
 import (
 	"context"
@@ -10,22 +9,64 @@ import (
 
 	zaputil "github.com/lthibault/log/util/zap"
 	"go.uber.org/zap"
+	"golang.org/x/sync/semaphore"
 
 	"github.com/libp2p/go-libp2p"
+	"github.com/libp2p/go-libp2p-core/event"
 	"github.com/libp2p/go-libp2p-core/host"
+	"github.com/libp2p/go-libp2p-core/peer"
 
 	"github.com/testground/sdk-go/run"
 	"github.com/testground/sdk-go/runtime"
 	tsync "github.com/testground/sdk-go/sync"
 	"github.com/wetware/casm/pkg/pex"
-	"github.com/wetware/lab/pkg/boot"
+	"github.com/wetware/lab/testground/pkg/boot"
 )
 
+const ns = "casm.lab.pex"
+
+var (
+	metricTick int64 = 1
+	evtAmount  int64 = 0
+	sem              = semaphore.NewWeighted(int64(100))
+	shortID          = make(map[peer.ID]int, 0)
+)
+
+func recordLocalRecordUpdates(ctx context.Context, env *runtime.RunEnv, h host.Host, sub event.Subscription, gossip *pex.Gossip) error {
+
+	for {
+		select {
+		case v := <-sub.Out():
+			if err := sem.Acquire(ctx, 1); err != nil {
+				break
+			}
+			view := []*pex.GossipRecord(v.(pex.EvtViewUpdated))
+			viewString := ""
+			for _, pr := range view {
+				viewString = fmt.Sprintf("%v-%v", viewString, shortID[pr.PeerID])
+			}
+
+			name := fmt.Sprintf("view,node=%v,records=%v,cluster=%v,tick=%v,"+
+				"C=%v,S=%v,P=%v,D=%v,run=%v", shortID[h.ID()], viewString, 0, metricTick,
+				gossip.C, gossip.S, gossip.P, gossip.D, env.TestGroupID)
+			env.D().RecordPoint(name, 0)
+			sem.Release(1)
+			atomic.AddInt64(&evtAmount, 1)
+		case <-ctx.Done():
+			return ctx.Err()
+		}
+	}
+}
+
 // Run tests for PeX.
-func RunConvergence(env *runtime.RunEnv, initCtx *run.InitContext) error {
+func RunPex(env *runtime.RunEnv, initCtx *run.InitContext) error {
 	var (
 		tick           = time.Millisecond * time.Duration(env.IntParam("tick")) // tick in miliseconds
 		tickAmount = env.IntParam("tickAmount")
+		c = env.IntParam("c")
+		s = env.IntParam("s")
+		p = env.IntParam("p")
+		d = env.FloatParam("d")
 	)
 
 	ctx, cancel := context.WithCancel(context.Background())
@@ -40,10 +81,10 @@ func RunConvergence(env *runtime.RunEnv, initCtx *run.InitContext) error {
 	if err != nil {
 		return err
 	}
-	gossip := pex.GossipParams{10, -1, -1, -1}
-	go viewMetricsLoop(ctx, env, h, sub, &gossip)
+	gossip := pex.Gossip{c, s, p, d}
+	go recordLocalRecordUpdates(ctx, env, h, sub, &gossip)
 
-	d := &boot.RedisDiscovery{
+	disc := &boot.RedisDiscovery{
 		ClusterSize: env.TestInstanceCount,
 		C:           initCtx.SyncClient,
 		Local:       host.InfoFromHost(h),
@@ -51,9 +92,9 @@ func RunConvergence(env *runtime.RunEnv, initCtx *run.InitContext) error {
 	
 
 	px, err := pex.New(ctx, h,
-		pex.WithGossipParams(gossip),
-		pex.WithDiscovery(d),
-		pex.WithTick(tick), // speed up the simulation
+		pex.WithGossip(func (ns string) pex.Gossip {return gossip}),
+		pex.WithDiscovery(disc),
+		pex.WithTick(func (ns string) time.Duration {return tick}), // speed up the simulation
 		pex.WithLogger(zaputil.Wrap(env.SLogger())))
 	if err != nil {
 		return err
