@@ -17,7 +17,7 @@ type RedisDiscovery struct {
 	ClusterSize int
 	C           tsync.Client
 	Local       *peer.AddrInfo
-	I int
+	I           int
 
 	once sync.Once
 	Topo Topology
@@ -77,7 +77,7 @@ func (r *RedisDiscovery) syncRedis(ctx context.Context, ns string) (as boot.Stat
 		case err = <-sub.Done():
 			return
 		case info := <-ch:
-			if (info == nil){
+			if info == nil {
 				println("info is nil")
 				continue
 			}
@@ -89,10 +89,9 @@ func (r *RedisDiscovery) syncRedis(ctx context.Context, ns string) (as boot.Stat
 
 }
 
-
 type MemoryDiscovery struct {
-	Local       *peer.AddrInfo
-	I int
+	Local *peer.AddrInfo
+	I     int
 	Hosts []host.Host
 
 	Topo Topology
@@ -114,7 +113,7 @@ func (m *MemoryDiscovery) FindPeers(ctx context.Context, ns string, opt ...disco
 		if m.Topo == nil {
 			m.Topo = Ring{m.Local.ID}
 		}
-		m.Sa = append(boot.StaticAddrs{}, m.Sa...)  // make a copy
+		m.Sa = append(boot.StaticAddrs{}, m.Sa...) // make a copy
 	})
 	return m.Topo.GetNeighbors(m.Sa).FindPeers(ctx, ns, opt...)
 }

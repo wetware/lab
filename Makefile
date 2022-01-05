@@ -7,7 +7,7 @@ all: clean link
 clean: unlink
 
 link:
-	@ln -s $(CURDIR) $(TESTGROUND_HOME)/plans/casm
+	@ln -s $(CURDIR)/testground $(TESTGROUND_HOME)/plans/casm
 
 unlink:
 	@rm -f $(TESTGROUND_HOME)/plans/casm

@@ -61,12 +61,12 @@ func recordLocalRecordUpdates(ctx context.Context, env *runtime.RunEnv, h host.H
 // Run tests for PeX.
 func RunPex(env *runtime.RunEnv, initCtx *run.InitContext) error {
 	var (
-		tick           = time.Millisecond * time.Duration(env.IntParam("tick")) // tick in miliseconds
+		tick       = time.Millisecond * time.Duration(env.IntParam("tick")) // tick in miliseconds
 		tickAmount = env.IntParam("tickAmount")
-		c = env.IntParam("c")
-		s = env.IntParam("s")
-		p = env.IntParam("p")
-		d = env.FloatParam("d")
+		c          = env.IntParam("c")
+		s          = env.IntParam("s")
+		p          = env.IntParam("p")
+		d          = env.FloatParam("d")
 	)
 
 	ctx, cancel := context.WithCancel(context.Background())
@@ -89,12 +89,11 @@ func RunPex(env *runtime.RunEnv, initCtx *run.InitContext) error {
 		C:           initCtx.SyncClient,
 		Local:       host.InfoFromHost(h),
 	}
-	
 
 	px, err := pex.New(ctx, h,
-		pex.WithGossip(func (ns string) pex.Gossip {return gossip}),
+		pex.WithGossip(func(ns string) pex.Gossip { return gossip }),
 		pex.WithDiscovery(disc),
-		pex.WithTick(func (ns string) time.Duration {return tick}), // speed up the simulation
+		pex.WithTick(func(ns string) time.Duration { return tick }), // speed up the simulation
 		pex.WithLogger(zaputil.Wrap(env.SLogger())))
 	if err != nil {
 		return err
@@ -105,16 +104,16 @@ func RunPex(env *runtime.RunEnv, initCtx *run.InitContext) error {
 	// a loop with the interval specified by the TTL return value.
 	initCtx.SyncClient.MustSignalAndWait(ctx, tsync.State("initialized"), env.TestInstanceCount)
 	for i := 0; i < tickAmount; i++ {
-		if initCtx.GlobalSeq == 1{
+		if initCtx.GlobalSeq == 1 {
 			fmt.Printf("Tick %v/%v\n", i+1, tickAmount)
 		}
 		ttl, err := px.Advertise(ctx, ns)
 		if err != nil && !strings.Contains(err.Error(), "stream reset") &&
 			!strings.Contains(err.Error(), "failed to dial") &&
-			!strings.Contains(err.Error(), "i/o deadline reached"){
+			!strings.Contains(err.Error(), "i/o deadline reached") {
 			return err
 		}
-		if err != nil{
+		if err != nil {
 			env.RecordMessage(err.Error())
 		}
 		env.SLogger().
@@ -135,11 +134,12 @@ func RunDnsTest(env *runtime.RunEnv, initCtx *run.InitContext) error {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	if (initCtx.GlobalSeq!=1){
+	if initCtx.GlobalSeq != 1 {
 		env.RecordSuccess()
 		initCtx.SyncClient.MustSignalAndWait(ctx, tsync.State("finished"), env.TestInstanceCount)
-	} else{
-		for{}
+	} else {
+		for {
+		}
 	}
 	return nil
 }
