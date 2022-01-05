@@ -490,6 +490,7 @@ github.com/libp2p/go-libp2p-circuit v0.1.4/go.mod h1:CY67BrEjKNDhdTk8UgBX1Y/H5c3
 github.com/libp2p/go-libp2p-circuit v0.2.1/go.mod h1:BXPwYDN5A8z4OEY9sOfr2DUQMLQvKt/6oku45YUmjIo=
 github.com/libp2p/go-libp2p-circuit v0.4.0 h1:eqQ3sEYkGTtybWgr6JLqJY6QLtPWRErvFjFDfAOO1wc=
 github.com/libp2p/go-libp2p-circuit v0.4.0/go.mod h1:t/ktoFIUzM6uLQ+o1G6NuBl2ANhBKN9Bc8jRIk31MoA=
+github.com/libp2p/go-libp2p-connmgr v0.2.4 h1:TMS0vc0TCBomtQJyWr7fYxcVYYhx+q/2gF++G5Jkl/w=
 github.com/libp2p/go-libp2p-connmgr v0.2.4/go.mod h1:YV0b/RIm8NGPnnNWM7hG9Q38OeQiQfKhHCCs1++ufn0=
 github.com/libp2p/go-libp2p-core v0.0.1/go.mod h1:g/VxnTZ/1ygHxH3dKok7Vno1VfpvGcGip57wjTU4fco=
 github.com/libp2p/go-libp2p-core v0.0.4/go.mod h1:jyuCQP356gzfCFtRKyvAbNkyeuxb7OlyhWZ3nls5d2I=
@@ -555,6 +556,7 @@ github.com/libp2p/go-libp2p-peerstore v0.2.8 h1:nJghUlUkFVvyk7ccsM67oFA6kqUkwyCM
 github.com/libp2p/go-libp2p-peerstore v0.2.8/go.mod h1:gGiPlXdz7mIHd2vfAsHzBNAMqSDkt2UBFwgcITgw1lA=
 github.com/libp2p/go-libp2p-pnet v0.2.0 h1:J6htxttBipJujEjz1y0a5+eYoiPcFHhSYHH6na5f0/k=
 github.com/libp2p/go-libp2p-pnet v0.2.0/go.mod h1:Qqvq6JH/oMZGwqs3N1Fqhv8NVhrdYcO0BW4wssv21LA=
+github.com/libp2p/go-libp2p-pubsub v0.5.4 h1:rHl9/Xok4zX3zgi0pg0XnUj9Xj2OeXO8oTu85q2+YA8=
 github.com/libp2p/go-libp2p-pubsub v0.5.4/go.mod h1:gVOzwebXVdSMDQBTfH8ACO5EJ4SQrvsHqCmYsCZpD0E=
 github.com/libp2p/go-libp2p-quic-transport v0.10.0/go.mod h1:RfJbZ8IqXIhxBRm5hqUEJqjiiY8xmEuq3HUDS993MkA=
 github.com/libp2p/go-libp2p-quic-transport v0.11.2 h1:p1YQDZRHH4Cv2LPtHubqlQ9ggz4CKng/REZuXZbZMhM=
@@ -676,9 +678,11 @@ github.com/lightstep/lightstep-tracer-common/golang/gogo v0.0.0-20190605223551-b
 github.com/lightstep/lightstep-tracer-go v0.18.1/go.mod h1:jlF1pusYV4pidLvZ+XD0UBX0ZE6WURAspgAczcDHrL4=
 github.com/lthibault/go-libp2p-inproc-transport v0.0.1-alpha.7 h1:FEV9yoMKVwmXsL7rnEvMHxfcEpxK0hacNJtY0htQkOw=
 github.com/lthibault/go-libp2p-inproc-transport v0.0.1-alpha.7/go.mod h1:P3KGUdIgSaAe4h2rnXzoHSLRSWymqQru1cIMN+R7v7Y=
+github.com/lthibault/jitterbug/v2 v2.2.3-0.20210828000604-93d421a45630 h1:fmqDKJU/0NGa7jHfn1QH/D1mKABEmDIbqN5CCkESOlE=
 github.com/lthibault/jitterbug/v2 v2.2.3-0.20210828000604-93d421a45630/go.mod h1:evaHKX+60nFbFnEvGNPybQMJ5vXay9auziApDGo47Sw=
 github.com/lthibault/log v1.2.1 h1:REKIXtQiw9dyAmiiqYZkPitve81odUB0aEqakS+TmTk=
 github.com/lthibault/log v1.2.1/go.mod h1:j254NVxJgJGQGevj/zS79WLQCVPoHW42ZFN/0yCqASo=
+github.com/lthibault/treap v0.1.4 h1:wl4J9/PP0zFDMQzG5SshEv6AXqawxgTgRxsRPs6INw4=
 github.com/lthibault/treap v0.1.4/go.mod h1:lkAEtwwWT4AtrM6APG4Y2MktVKUoT6hHcJHe/gxF1ho=
 github.com/lthibault/util v0.0.10/go.mod h1:cGZBEILcwYh+UkEdWKgP1vEOlayHa5dh2ay8yixCJQ0=
 github.com/lthibault/util v0.0.11 h1:GC0rQ1lmQLEoB/9QxymWJ+RF8IBg8/copYQ3tSM/G38=
@@ -1013,8 +1017,6 @@ github.com/viant/assertly v0.4.8/go.mod h1:aGifi++jvCrUaklKEKT0BU95igDNaqkvz+49u
 github.com/viant/toolbox v0.24.0/go.mod h1:OxMCG57V0PXuIP2HNQrtJf2CjqdmbrOx5EkMILuUhzM=
 github.com/wangjia184/sortedset v0.0.0-20160527075905-f5d03557ba30/go.mod h1:YkocrP2K2tcw938x9gCOmT5G5eCD6jsTz0SZuyAqwIE=
 github.com/warpfork/go-wish v0.0.0-20200122115046-b9ea61034e4a/go.mod h1:x6AKhvSSexNrVSrViXSHUEbICjmGXhtgABaHIySUSGw=
-github.com/wetware/casm v0.0.0-20220102122612-4801ef1ef366 h1:5tt1GvEAToUnGCQFwcsxq4S2sLvaZjHbVbSRx5UbIIs=
-github.com/wetware/casm v0.0.0-20220102122612-4801ef1ef366/go.mod h1:dHeMUZhGBjx8MpQaffaEQriELVCd7OCOSRm7kO1+itQ=
 github.com/wetware/casm v0.0.0-20220104005526-d74f0be43166 h1:bbmaf4Xf47810n26AL+AlMIr3ImR7nzIOwvSmktggGY=
 github.com/wetware/casm v0.0.0-20220104005526-d74f0be43166/go.mod h1:/8eVk/k/gvWQpTuqa9em2G8jk7f0keWszvMoU/mVy8w=
 github.com/wetware/matrix v1.0.0-alpha.17 h1:QtAf4J1oKN1mE5OIxPwsyLbFz6dGyc7V+jz0+C5kbcY=
@@ -1026,6 +1028,7 @@ github.com/whyrusleeping/mafmt v1.2.8/go.mod h1:faQJFPbLSxzD9xpA02ttW/tS9vZykNvX
 github.com/whyrusleeping/mdns v0.0.0-20190826153040-b9b60ed33aa9/go.mod h1:j4l84WPFclQPj320J9gp0XwNKBb3U0zt5CBqjPp22G4=
 github.com/whyrusleeping/multiaddr-filter v0.0.0-20160516205228-e903e4adabd7 h1:E9S12nwJwEOXe2d6gT6qxdvqMnNq+VnSsKPgm2ZZNds=
 github.com/whyrusleeping/multiaddr-filter v0.0.0-20160516205228-e903e4adabd7/go.mod h1:X2c0RVCI1eSUFI8eLcY3c0423ykwiUdxLJtkDvruhjI=
+github.com/whyrusleeping/timecache v0.0.0-20160911033111-cfcb2f1abfee h1:lYbXeSvJi5zk5GLKVuid9TVjS9a0OmLIDKTfoZBL6Ow=
 github.com/whyrusleeping/timecache v0.0.0-20160911033111-cfcb2f1abfee/go.mod h1:m2aV4LZI4Aez7dP5PMyVKEHhUyEJ/RjmPEDOpDvudHg=
 github.com/x-cray/logrus-prefixed-formatter v0.5.2/go.mod h1:2duySbKsL6M18s5GU7VPsoEPHyzalCE06qoARUCeBBE=
 github.com/xiang90/probing v0.0.0-20190116061207-43a291ad63a2/go.mod h1:UETIi67q53MR2AWcXfiuqkDkRtnGDLqkBTpCHuJHxtU=

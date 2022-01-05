@@ -5,6 +5,7 @@ go 1.17
 require (
 	github.com/influxdata/influxdb-client-go/v2 v2.6.0
 	github.com/libp2p/go-libp2p-core v0.9.0
+	github.com/libp2p/go-libp2p-pubsub v0.5.4
 	github.com/thanhpk/randstr v1.0.4
 	github.com/wetware/casm v0.0.0-20220104005526-d74f0be43166
 	github.com/wetware/matrix v1.0.0-alpha.17
@@ -73,7 +74,9 @@ require (
 	github.com/libp2p/go-ws-transport v0.5.0 // indirect
 	github.com/libp2p/go-yamux/v2 v2.2.0 // indirect
 	github.com/lthibault/go-libp2p-inproc-transport v0.0.1-alpha.7 // indirect
+	github.com/lthibault/jitterbug/v2 v2.2.3-0.20210828000604-93d421a45630 // indirect
 	github.com/lthibault/log v1.2.1 // indirect
+	github.com/lthibault/treap v0.1.4 // indirect
 	github.com/lthibault/util v0.0.11 // indirect
 	github.com/marten-seemann/tcp v0.0.0-20210406111302-dfbc87cc63fd // indirect
 	github.com/mattn/go-isatty v0.0.14 // indirect
@@ -102,6 +105,7 @@ require (
 	github.com/sirupsen/logrus v1.8.1 // indirect
 	github.com/spacemonkeygo/spacelog v0.0.0-20180420211403-2296661a0572 // indirect
 	github.com/whyrusleeping/multiaddr-filter v0.0.0-20160516205228-e903e4adabd7 // indirect
+	github.com/whyrusleeping/timecache v0.0.0-20160911033111-cfcb2f1abfee // indirect
 	go.uber.org/atomic v1.9.0 // indirect
 	go.uber.org/dig v1.12.0 // indirect
 	go.uber.org/fx v1.14.2 // indirect
